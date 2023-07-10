@@ -1,7 +1,7 @@
 Engineering materials
 ====
 
-This repository contains engineering materials for Team **GSG Miners** participating in the WRO Future Engineers competition in the season [yyyy].
+This repository contains engineering materials for Team **GSG Miners** participating in the WRO Future Engineers competition in the season 2024.
 
 ## Content
 
