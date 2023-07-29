@@ -5,22 +5,21 @@ body:
   attributes: 
     label: Description
     description: Write an inspirational and activating description of the goal state.
-    render: markdown
   validations:
     required: true
 - type: textarea
   attributes:
     label: Checklist
     description: Concretize the objective by listing the concrete benchmarks for achieving the goal.
-    render: markdown
   validations: 
     required: true
-- type: input
+- type: textarea
   attributes:
     label: OKR metadata
     description: You can fill in the optional data for OKR.
-    options:
-      - label: score
-      - label: confidence level
-      - label: supervisor
-    render: markdown
+    placedholder:
+      - score
+      - confidence level
+      - supervisor
+    validations:
+      required: false
