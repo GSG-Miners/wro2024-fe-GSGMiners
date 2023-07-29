@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="/.github/images/repository_banner_cropped.png" width="800" height="auto" alt="Banner that says: 'ZEN - Zone of Engineering Newcomers 2024'">
+</div>
+
 Engineering Materials of Team ZEN
 ====
 
