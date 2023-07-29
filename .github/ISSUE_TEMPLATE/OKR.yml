@@ -16,10 +16,4 @@ body:
 - type: textarea
   attributes:
     label: OKR metadata
-    description: You can fill in the optional data for OKR.
-    placedholder:
-      - score
-      - confidence level
-      - supervisor
-    validations:
-      required: false
+    description: You can fill in the optional data for OKR (score, confidence level, supervisor).
