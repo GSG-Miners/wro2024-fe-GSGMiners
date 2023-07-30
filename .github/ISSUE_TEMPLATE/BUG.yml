@@ -1,0 +1,22 @@
+name: 🐞 Bug
+description: File a bug / issue.
+body: 
+- type: textarea
+  attributes:
+    label: Description
+    description: What happened?
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Steps to reproduce
+    description: Which steps do we need to take to reproduce this error?
+- type: textarea
+  attributes:
+    label: Relevant log output
+    description: If applicable, provide relevant log output.
+    render: shell
+- type: textarea
+  attributes: 
+    label: Screenshots
+    description: If applicable, provide screenshots of the bug error.

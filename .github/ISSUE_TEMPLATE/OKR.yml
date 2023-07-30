@@ -1,5 +1,5 @@
-name: OKR
-description: File an Object that needs to be done.
+name: 🎯 OKR
+description: File a goal that needs to be achieved.
 body: 
 - type: textarea
   attributes: 
