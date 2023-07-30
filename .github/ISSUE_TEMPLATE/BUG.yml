@@ -1,4 +1,5 @@
 name: 🐞 Bug
+title: "[Bug]: "
 description: File a bug / issue.
 body: 
 - type: textarea
