@@ -3,13 +3,13 @@ description: File a goal that needs to be achieved.
 body: 
 - type: textarea
   attributes: 
-    label: Description
+    label: Objective
     description: Write an inspirational and activating description of the goal state.
   validations:
     required: true
 - type: textarea
   attributes:
-    label: Checklist
+    label: Key Results
     description: Concretize the objective by listing the concrete benchmarks for achieving the goal.
   validations: 
     required: true
