@@ -1,10 +1,20 @@
 /**
  * @file lcd_display.h
  * @brief Expanded commands and specific routines for the LCD display.
+<<<<<<< HEAD
  * @date 23rd December 2023 - 31st January 2024
  * @author Maximilian Kautzsch
  * @details Last modified by Maximilian Kautzsch, Finnian Belger & Logan Weigoldt
  */
+
+#ifndef LCD_DISPLAY_H
+#define LCD_DISPLAY_H
+=======
+ * @date 23rd December 2023 - 3rd February 2024
+ * @author Maximilian Kautzsch
+ * @details Last modified by Maximilian Kautzsch, Finnian Belger & Logan Weigoldt
+*/
+>>>>>>> 7156fcf (Large Update)
 
 #ifndef LCD_DISPLAY_H
 #define LCD_DISPLAY_H
@@ -15,6 +25,7 @@
 /**
  * @enum DisplayDimensions
  * @brief Enum to hold the specific amount of columns and rows of the lcd display.
+<<<<<<< HEAD
  */
 enum DisplayDimensions : const uint8_t
 {
@@ -24,6 +35,16 @@ enum DisplayDimensions : const uint8_t
 
 // Create LCD object
 LiquidCrystal_I2C lcd(0x27, DisplayDimensions::kColumns, DisplayDimensions::kRows);
+=======
+*/
+enum DisplayDimensions : const uint8_t {
+  COLUMNS = 16,
+  ROWS = 2
+};
+
+// Create LCD object
+LiquidCrystal_I2C lcd(0x27, DisplayDimensions::COLUMNS, DisplayDimensions::ROWS);
+>>>>>>> 7156fcf (Large Update)
 
 /**
  * @brief Function to format numbers into strings with leading spaces.
@@ -32,8 +53,12 @@ LiquidCrystal_I2C lcd(0x27, DisplayDimensions::kColumns, DisplayDimensions::kRow
  * @param show_sign Checks if the sign of the number should be displayed.
  * @return The formatted string.
  */
+<<<<<<< HEAD
 String formatNumber(int16_t number, uint8_t max_digits, bool show_sign)
 {
+=======
+String formatNumber(int16_t number, uint8_t max_digits, bool show_sign) {
+>>>>>>> 7156fcf (Large Update)
   // Get the absolute value of the maximum and minimum number that
   // can be displayed according to max_digits
   uint16_t limit = pow(10, max_digits) - 1;
@@ -66,10 +91,15 @@ String formatNumber(int16_t number, uint8_t max_digits, bool show_sign)
  * @param max_digits The maximum number of digits to display on the LCD.
  * @param show_sign Checks if the sign of the number should be displayed on the LCD.
  */
+<<<<<<< HEAD
 void lcdUpdate(int16_t last_number, int16_t current_number, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign)
 {
   if (last_number != current_number)
   {
+=======
+void lcdUpdate(int16_t last_number, int16_t current_number, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign) {
+  if (last_number != current_number) {
+>>>>>>> 7156fcf (Large Update)
     lcd.setCursor(cursor_x, cursor_y);
     lcd.print(formatNumber(current_number, max_digits, show_sign));
     last_number = current_number;
@@ -79,12 +109,18 @@ void lcdUpdate(int16_t last_number, int16_t current_number, uint8_t cursor_x, ui
 /**
  * @brief Clear the content of the LCD display without using large delays.
  */
+<<<<<<< HEAD
 void lcdClear()
 {
   for (uint8_t i = 0; i < DisplayDimensions::kRows; i++)
   {
     for (uint8_t j = 0; j < DisplayDimensions::kColumns; j++)
     {
+=======
+void lcdClear() {
+  for (uint8_t i = 0; i < DisplayDimensions::ROWS; i++) {
+    for (uint8_t j = 0; j < DisplayDimensions::COLUMNS; j++) {
+>>>>>>> 7156fcf (Large Update)
       lcd.setCursor(j, i);
       lcd.print(" ");
     }
@@ -113,9 +149,14 @@ void lcdBootup()
 
 /**
  * @brief Setup routine for printing the values on the LCD display.
+<<<<<<< HEAD
  */
 void lcdPrintValueSetup()
 {
+=======
+*/
+void lcdPrintValueSetup() {
+>>>>>>> 7156fcf (Large Update)
   lcd.setCursor(0, 0);
   lcd.print("L");
   lcd.setCursor(4, 0);
@@ -159,4 +200,8 @@ void lcdShutdown()
   delay(500);
 }
 
+<<<<<<< HEAD
 #endif // LCD_DISPLAY_H
+=======
+#endif  // LCD_DISPLAY_H
+>>>>>>> 7156fcf (Large Update)

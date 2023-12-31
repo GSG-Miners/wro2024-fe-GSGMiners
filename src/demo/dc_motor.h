@@ -1,10 +1,17 @@
 /**
  * @file dc_motor.h
  * @brief DC motor control class using the "pwm.h" module from the arduino-renesas core.
+<<<<<<< HEAD
  * @date 23rd December 2023 - 31st January 2024
  * @author Maximilian Kautzsch
  * @details Last modified by Maximilian Kautzsch, Finnian Belger & Logan Weigoldt
  */
+=======
+ * @date 23rd December 2023 - 3rd February 2024
+ * @author Maximilian Kautzsch
+ * @details Last modified by Maximilian Kautzsch, Finnian Belger & Logan Weigoldt
+*/
+>>>>>>> 7156fcf (Large Update)
 
 #ifndef DC_MOTOR_H
 #define DC_MOTOR_H
@@ -16,15 +23,25 @@
 /**
  * @enum MotorConstants
  * @brief This enum type defines the motor constants for speed, acceleration and update interval.
+<<<<<<< HEAD
  */
 enum MotorConstants : const int8_t
 {
+=======
+*/
+enum MotorConstants : const int8_t {
+>>>>>>> 7156fcf (Large Update)
   MIN_SPEED = -100,
   MAX_SPEED = 100,
   MIN_ACCELERATION = 0,
   MAX_ACCELERATION = 100,
+<<<<<<< HEAD
   MIN_UPDATE_INTERVAL = 50,
   MAX_UPDATE_INTERVAL = 2
+=======
+  MIN_UPDATE_DELAY = 50,
+  MAX_UPDATE_DELAY = 2
+>>>>>>> 7156fcf (Large Update)
 };
 
 /**
@@ -46,6 +63,7 @@ public:
   int8_t getSpeed();
 
 private:
+<<<<<<< HEAD
   PwmOut forwardPwm;                     ///< The PWM output for the forward direction of the motor
   PwmOut backwardPwm;                    ///< The PWM output for the backward direction of the motor
   bool enabled_;                         ///< The flag to indicate if the motor is enabled or disabled
@@ -56,6 +74,17 @@ private:
   uint8_t speed_update_interval_;        ///< The interval in milliseconds to update the motor speed
   uint16_t frequency_;                   ///< The frequency of the PWM signal in Hz
   unsigned long last_speed_update_time_; ///< The last time in milliseconds when the motor speed was updated
+=======
+  PwmOut forwardPwm;       ///< The PWM output for the forward direction of the motor
+  PwmOut backwardPwm;      ///< The PWM output for the backward direction of the motor
+  bool enabled_;           ///< The flag to indicate if the motor is enabled or disabled
+  bool status_;            ///< The flag to indicate if the motor is updating its speed
+  int8_t current_speed_;   ///< The current speed of the motor in percentage, from -100 (backward) to 100 (forward)
+  int8_t setpoint_speed_;  ///< The desired speed of the motor in percentage, from -100 (backward) to 100 (forward)
+  uint8_t acceleration_;   ///< The acceleration of the motor in percentage, from 0 (no acceleration) to 100 (maximum acceleration)
+  uint8_t update_delay_;   ///< The interval in milliseconds to update the motor speed
+  uint16_t frequency_;     ///< The frequency of the PWM signal in Hz
+>>>>>>> 7156fcf (Large Update)
 };
 
 #endif // DC_MOTOR_H
