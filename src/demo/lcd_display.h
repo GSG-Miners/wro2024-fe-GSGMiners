@@ -1,45 +1,56 @@
 /**
  * @file lcd_display.h
  * @brief Expanded commands and specific routines for the LCD display.
+ * @date 23rd December 2023 - 31st January 2024
  * @author Maximilian Kautzsch
- * @date Created on 23rd December 2023
- * @date Last modified on 25th December 2023 by Maximilian Kautzsch,
- * Finnian Belger & Logan Weigoldt
-*/
+ * @details Last modified by Maximilian Kautzsch, Finnian Belger & Logan Weigoldt
+ */
+
+#ifndef LCD_DISPLAY_H
+#define LCD_DISPLAY_H
 
 #include <sys/_stdint.h>
 #include <LiquidCrystal_I2C.h>
 
-// LCD display dimensions
-const uint8_t columns = 16;
-const uint8_t rows = 2;
+/**
+ * @enum DisplayDimensions
+ * @brief Enum to hold the specific amount of columns and rows of the lcd display.
+ */
+enum DisplayDimensions : const uint8_t
+{
+  kColumns = 16,
+  kRows = 2
+};
 
 // Create LCD object
-LiquidCrystal_I2C lcd(0x27, columns, rows);
+LiquidCrystal_I2C lcd(0x27, DisplayDimensions::kColumns, DisplayDimensions::kRows);
 
 /**
  * @brief Function to format numbers into strings with leading spaces.
- * @param num The number to format.
+ * @param number The number to format.
  * @param max_digits The maximum number of digits in the formatted string.
  * @param show_sign Checks if the sign of the number should be displayed.
  * @return The formatted string.
  */
-String formatNumber(int16_t num, uint8_t max_digits, bool show_sign) {
+String formatNumber(int16_t number, uint8_t max_digits, bool show_sign)
+{
   // Get the absolute value of the maximum and minimum number that
   // can be displayed according to max_digits
   uint16_t limit = pow(10, max_digits) - 1;
 
   // Convert number into string and get the sign from the number
-  String str = String(abs(constrain(num, -limit, limit)));
-  String sign = (num > 0)   ? "+"
-                : (num < 0) ? "-"
-                            : " ";
+  String str = String(abs(constrain(number, -limit, limit)));
+  String sign = (number > 0)   ? "+"
+                : (number < 0) ? "-"
+                               : " ";
 
   // Add leading spaces until the string length reaches max_digits
-  if (show_sign) {
+  if (show_sign)
+  {
     str = sign + str;
   }
-  while (str.length() < max_digits + (show_sign ? 1 : 0)) {
+  while (str.length() < max_digits + (show_sign ? 1 : 0))
+  {
     str = " " + str;
   }
 
@@ -48,24 +59,32 @@ String formatNumber(int16_t num, uint8_t max_digits, bool show_sign) {
 
 /**
  * @brief Function to update the LCD display with the current sensor readings.
- * @tparam T The type of the sensor reading.
- * @param values An array of PrintValues structs holding the sensor readings.
- * @param size The number of elements in the array.
+ * @param last_number The last number displayed on the LCD.
+ * @param current_number The current number to display on the LCD.
+ * @param cursor_x The x position of the cursor on the LCD.
+ * @param cursor_y The y position of the cursor on the LCD.
+ * @param max_digits The maximum number of digits to display on the LCD.
+ * @param show_sign Checks if the sign of the number should be displayed on the LCD.
  */
-void lcdUpdate(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign) {
-  if (last_num != current_num) {
+void lcdUpdate(int16_t last_number, int16_t current_number, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign)
+{
+  if (last_number != current_number)
+  {
     lcd.setCursor(cursor_x, cursor_y);
-    lcd.print(formatNumber(current_num, max_digits, show_sign));
-    last_num = current_num;
+    lcd.print(formatNumber(current_number, max_digits, show_sign));
+    last_number = current_number;
   }
 }
 
 /**
  * @brief Clear the content of the LCD display without using large delays.
  */
-void lcdClear() {
-  for (uint8_t i = 0; i < rows; i++) {
-    for (uint8_t j = 0; j < columns; j++) {
+void lcdClear()
+{
+  for (uint8_t i = 0; i < DisplayDimensions::kRows; i++)
+  {
+    for (uint8_t j = 0; j < DisplayDimensions::kColumns; j++)
+    {
       lcd.setCursor(j, i);
       lcd.print(" ");
     }
@@ -75,7 +94,8 @@ void lcdClear() {
 /**
  * @brief Bootup routine for the LCD display.
  */
-void lcdBootup() {
+void lcdBootup()
+{
   lcd.setCursor(2, 0);
   lcd.print("INITIALIZING");
 
@@ -83,7 +103,8 @@ void lcdBootup() {
   lcd.setCursor(2, 1);
   lcd.print("[----------]");
   delay(100);
-  for (uint8_t i = 3; i < 13; i++) {
+  for (uint8_t i = 3; i < 13; i++)
+  {
     lcd.setCursor(i, 1);
     lcd.print("=");
     delay(100);
@@ -92,9 +113,9 @@ void lcdBootup() {
 
 /**
  * @brief Setup routine for printing the values on the LCD display.
-*/
-
-void lcdPrintValueSetup() {
+ */
+void lcdPrintValueSetup()
+{
   lcd.setCursor(0, 0);
   lcd.print("L");
   lcd.setCursor(4, 0);
@@ -114,7 +135,8 @@ void lcdPrintValueSetup() {
 /**
  * @brief Shutdown routine for the LCD display.
  */
-void lcdShutdown() {
+void lcdShutdown()
+{
   lcdClear();
   lcd.setCursor(6, 0);
   lcd.print("RACE");
@@ -128,10 +150,13 @@ void lcdShutdown() {
   lcd.print("POWER SAVING");
   lcd.setCursor(3, 1);
   lcd.print("MODE IN 3.");
-  for (uint8_t i = 2; i > 0; i--) {
+  for (uint8_t i = 2; i > 0; i--)
+  {
     delay(500);
     lcd.setCursor(11, 1);
     lcd.print(i);
   }
   delay(500);
 }
+
+#endif // LCD_DISPLAY_H
