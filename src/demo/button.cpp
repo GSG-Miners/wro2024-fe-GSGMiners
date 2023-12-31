@@ -12,7 +12,8 @@
  * @param button_pin The pin number of the button.
 <<<<<<< HEAD
  */
-Button::Button(uint8_t button_pin) : button_pin_(button_pin)
+Button::Button(uint8_t button_pin)
+    : button_pin_(button_pin)
 {
 =======
 */
@@ -42,7 +43,7 @@ Button::~Button() {
  */
 void Button::update()
 {
-  unsigned long last_debounce_time;
+  static unsigned long last_debounce_time;
 
   current_state_ = digitalRead(button_pin_);
   if (current_state_ != last_unstable_state_)

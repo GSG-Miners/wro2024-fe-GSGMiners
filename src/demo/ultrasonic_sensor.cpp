@@ -35,7 +35,7 @@ UltrasonicSensor::UltrasonicSensor(uint8_t trigger_pin, uint8_t echo_pin, SonarM
 <<<<<<< HEAD
  */
 UltrasonicSensor::UltrasonicSensor(uint8_t trigger_pin, uint8_t echo_pin)
-    : UltrasonicSensor(trigger_pin, echo_pin, SonarMode::kManual) {}
+    : UltrasonicSensor(trigger_pin, echo_pin, SonarMode::MANUAL) {}
 
 /**
  * @brief Destructor that sets the trigger pin to INPUT mode and the echo pin to OUTPUT.
@@ -62,7 +62,7 @@ UltrasonicSensor::~UltrasonicSensor() {
  */
 void UltrasonicSensor::computeDistance()
 {
-  unsigned long last_us;
+  static unsigned long last_us;
 
   digitalWrite(trigger_pin_, LOW);
   if (micros() - last_us > 2)
@@ -97,7 +97,7 @@ void UltrasonicSensor::computeDistance() {
  */
 void UltrasonicSensor::update()
 {
-  if (mode_ == SonarMode::kAutomatic)
+  if (mode_ == SonarMode::AUTOMATIC)
   {
 =======
 */
@@ -136,7 +136,7 @@ void UltrasonicSensor::setMode(SonarMode mode) {
  */
 void UltrasonicSensor::startMeasurement()
 {
-  if (mode_ == SonarMode::kManual)
+  if (mode_ == SonarMode::MANUAL)
   {
 =======
 */

@@ -1,11 +1,7 @@
 /**
  * @file button.h
  * @brief Button class for managing button state and count.
-<<<<<<< HEAD
  * @date 23rd December 2023 - 31st January 2024
-=======
- * @date 23rd December 2023 - 3rd February 2024
->>>>>>> 7156fcf (Large Update)
  * @author Maximilian Kautzsch
  * @details Last modified by Maximilian Kautzsch,
  * Finnian Belger & Logan Weigoldt
@@ -45,15 +41,15 @@ private:
   uint8_t count_;            ///< The number of times the button has been pressed
 };
 
-#endif // BUTTON_H
-=======
-  bool current_state_;        ///< The current state of the button (HIGH or LOW)
-  bool last_unstable_state_;  ///< The last state of the button that may change
-  bool last_steady_state_;    ///< The last state of the button that was stable
-  uint8_t button_pin_;        ///< The pin number of the button
-  uint8_t debounce_delay_;    ///< The delay in milliseconds to ignore button flickering
-  uint8_t count_;             ///< The number of times the button has been pressed
-};
+#endif                     // BUTTON_H
+======= bool current_state_;    ///< The current state of the button (HIGH or LOW)
+bool last_unstable_state_; ///< The last state of the button that may change
+bool last_steady_state_;   ///< The last state of the button that was stable
+uint8_t button_pin_;       ///< The pin number of the button
+uint8_t debounce_delay_;   ///< The delay in milliseconds to ignore button flickering
+uint8_t count_;            ///< The number of times the button has been pressed
+}
+;
 
-#endif  // BUTTON_H
+#endif // BUTTON_H
 >>>>>>> 7156fcf (Large Update)

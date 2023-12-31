@@ -60,13 +60,15 @@ bool Motor::init() {
  */
 void Motor::update()
 {
-  speed_update_interval_ = map(acceleration_, MIN_ACCELERATION, MAX_ACCELERATION,
-                               MIN_UPDATE_INTERVAL, MAX_UPDATE_INTERVAL);
+  static unsigned long last_ms;
+
+  update_delay_ = map(acceleration_, MIN_ACCELERATION, MAX_ACCELERATION,
+                      MIN_UPDATE_DELAY, MAX_UPDATE_DELAY);
 
   // adjust the current speed to the setpoint speed in time interval
-  if (millis() > speed_update_interval_ + last_speed_update_time_)
+  if (millis() - last_ms > update_delay_)
   {
-    last_speed_update_time_ = millis();
+    last_ms = millis();
     if (setpoint_speed_ != current_speed_)
     {
 =======
