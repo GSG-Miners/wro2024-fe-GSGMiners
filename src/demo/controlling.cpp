@@ -63,6 +63,15 @@ void Controller::serialPlotGraph()
 }
 
 /**
+ * @brief Returns the setpoint value of the controller.
+ * @return The setpoint value.
+ */
+int16_t Controller::getSetpoint()
+{
+  return setpoint_value_;
+}
+
+/**
  * @brief Returns the output value of the controller.
  * @return The output value.
  */
@@ -265,4 +274,13 @@ void ThreeStateController::setSteeringAngles(uint8_t straight_steering_angle, ui
   straight_steering_angle_ = straight_steering_angle;
   left_steering_angle_ = left_steering_angle;
   right_steering_angle_ = right_steering_angle;
+}
+
+/**
+ * @brief Retuns the current hysteresis value of the controller.
+ * @return The hysteresis value.
+ */
+int8_t ThreeStateController::getHysteresis()
+{
+  return hysteresis_;
 }

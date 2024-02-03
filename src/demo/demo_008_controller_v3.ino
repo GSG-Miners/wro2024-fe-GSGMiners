@@ -285,7 +285,7 @@ void loop()
  * @param deviation The amount of deviation allowed from the reference number.
  * @return True if number_A is within the range, false otherwise.
  */
-void isInRange(int16_t number_A, uint16_t number_B, uint16_t deviation)
+bool isInRange(int16_t number_A, uint16_t number_B, uint16_t deviation)
 {
   int16_t lower_bound = number_A - deviation;
   int16_t upper_bound = number_B + deviation;
@@ -543,7 +543,7 @@ void autoSteering()
       {
         anticlockwiseSteering.setpoint(initialReadings.distance_left);
       }
-      if (currentReadings.distance_left <= 35 || currentReadings.distance_left >= 45)
+      if (currentReadings.distance_left <= anticlockwiseSteering.getSetpoint() - anticlockwiseSteering.getHysteresis() || currentReadings.distance_left >= anticlockwiseSteering.getSetpoint() + anticlockwiseSteering.getHysteresis())
       {
         directionDependentControlLoop();
       }
@@ -559,7 +559,7 @@ void autoSteering()
       {
         anticlockwiseSteering.setpoint(initialReadings.distance_left);
       }
-      if (currentReadings.distance_right <= 35 || currentReadings.distance_right >= 45)
+      if (currentReadings.distance_right <= clockwiseSteering.getSetpoint() - clockwiseSteering.getHysteresis() || currentReadings.distance_right >= clockwiseSteering.getSetpoint() + clockwiseSteering.getHysteresis())
       {
         directionDependentControlLoop();
       }

@@ -40,6 +40,7 @@ public:
   virtual void setControllerDirection(ControllerDirection direction);
   virtual void setSampleTime(uint8_t sample_time);
   virtual void serialPlotGraph();
+  virtual int16_t getSetpoint();
   virtual int16_t getOutput();
 
 protected:
@@ -86,6 +87,7 @@ public:
   void update(int16_t input_value);
   void setHysteresis(int8_t hysteresis);
   void setSteeringAngles(uint8_t straight_steering_angle, uint8_t left_steering_angle, uint8_t right_steering_angle);
+  int8_t getHysteresis();
 
 private:
   uint8_t straight_steering_angle_; ///< The steering angle for the straight direction in degrees
