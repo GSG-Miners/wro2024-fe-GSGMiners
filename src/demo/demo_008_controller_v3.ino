@@ -1,7 +1,7 @@
 /**
  * @file demo_008_controller_v3.ino
  * @brief This sketch is used to test out an initial three point controller.
- * @date 23rd December 2023 - 31st January 2024
+ * @date 23rd December 2023 - 3rd February 2024
  * @author Maximilian Kautzsch
  * @details Last modified by Maximilian Kautzsch,
  * Finnian Belger & Logan Weigoldt
@@ -16,9 +16,9 @@
 #include "dc_motor.h"
 #include "controlling.h"
 
-///----------------------------------------
+///========================================
 /// @section CONFIG
-///----------------------------------------
+///========================================
 
 ///----------------------------------------
 /// @subsection ENUMS
@@ -28,13 +28,8 @@
  * @enum Pins
  * @brief Enum to hold the pin numbers for the various components.
  */
-<<<<<<< HEAD
 enum Pins : const pin_size_t
 {
-=======
-enum Pins : const pin_size_t
-{
->>>>>>> 7156fcf (Large Update)
   TRIGGER_PIN_LEFT = 4,
   ECHO_PIN_LEFT = 3,
   TRIGGER_PIN_FRONT = 9,
@@ -45,16 +40,6 @@ enum Pins : const pin_size_t
   BUTTON_PIN = 15,
   MOTOR_FORWARD_PIN = 5,
   MOTOR_BACKWARD_PIN = 6,
-  SERVO_PIN = 7,
-};
-
-/**
- * @enum Direction
- * @enum Enum to store names for the directions.
- */
-enum Direction : const bool
-{
-=======
   SERVO_PIN = 7
 };
 
@@ -64,78 +49,56 @@ enum Direction : const bool
  */
 enum Direction : const bool
 {
->>>>>>> 7156fcf (Large Update)
   CLOCKWISE = false,
   ANTI_CLOCKWISE = true
 };
 
 /**
-<<<<<<< HEAD
  * @enum SteeringAngles
  * @brief Enum to hold the max values of the steering angles.
  */
 enum SteeringAngles : const uint8_t
 {
-=======
-  *@ enum SteeringAngles
-       *@brief Enum to hold the max values of the steering angles.
-           * /
-  enum SteeringAngles : const uint8_t{
->>>>>>> 7156fcf (Large Update)
-      MAX_LEFT = 47,
-      MAX_RIGHT = 124,
-      STRAIGHT = 90};
+  MAX_LEFT = 47,
+  MAX_RIGHT = 124,
+  STRAIGHT = 90
+};
 
-  /**
-   * @enum RaceConstants
-   * @brief Enum to hold race specific constant parameters.
-   */
-  enum RaceDistances : const uint8_t{
-      MIN_DISTANCE = 5,
-      MAX_DISTANCE = 130};
+/**
+ * @enum RaceDistances
+ * @brief Enum to hold race specific distance values.
+ */
+enum RaceDistances : const uint8_t
+{
+  SETPOINT_DISTANCE = 40,
+  MIN_DISTANCE = 5,
+  MAX_DISTANCE = 130
+};
 
-<<<<<<< HEAD
-=======
+///----------------------------------------
+/// @subsection STRUCTURES
+///----------------------------------------
 
->>>>>>> 7156fcf (Large Update)
-  ///----------------------------------------
-  /// @subsection STRUCTURES
-  ///----------------------------------------
-
-  /**
-  <<<<<<< HEAD
-   * @struct SensorReadings
-   * @brief Struct to group all input values (from the sensors).
-   */
-  typedef struct
-  {
-      uint8_t button_count;     ///< Current button count
-      uint8_t voltage;          ///< Current voltage reading
-      uint16_t distance_left;   ///< Current distance reading from the left sensor
-      uint16_t distance_front;  ///< Current distance reading from the front sensor
-      uint16_t distance_right;  ///< Current distance reading from the right sensor
-      int16_t yaw_angle;        ///< Current yaw angle reading
-      int16_t angular_velocity; ///< Current raw gyroscope data (angular velocity)
-=======
-      *@ struct SensorReadings * @brief Struct to group all input values(from the sensors).* /
-      typedef struct {
-          uint8_t button_count;     ///< Current button count
-          uint8_t voltage;          ///< Current voltage reading
-          uint16_t distance_left;   ///< Current distance reading from the left sensor
-          uint16_t distance_front;  ///< Current distance reading from the front sensor
-          uint16_t distance_right;  ///< Current distance reading from the right sensor
-          int16_t yaw_angle;        ///< Current yaw angle reading
-          int16_t angular_velocity; ///< Current raw gyroscope data (angular velocity)
->>>>>>> 7156fcf (Large Update)
-      }
-SensorReadings;
+/**
+ * @struct SensorReadings
+ * @brief Struct to group all input values (from the sensors).
+ */
+typedef struct
+{
+  uint8_t button_count;     ///< Current button count
+  uint8_t voltage;          ///< Current voltage reading
+  uint16_t distance_left;   ///< Current distance reading from the left sensor
+  uint16_t distance_front;  ///< Current distance reading from the front sensor
+  uint16_t distance_right;  ///< Current distance reading from the right sensor
+  int16_t yaw_angle;        ///< Current yaw angle reading
+  int16_t angular_velocity; ///< Current raw gyroscope data (angular velocity)
+} SensorReadings;
 
 /**
   * @struct ControllerParameters
   * @brief Struct to store all attributes that are used to configure a three state controller
  or PID controller.
 */
-<<<<<<< HEAD
 typedef struct
 {
   float proportional_gain;       ///< Gain of proportional term
@@ -148,25 +111,11 @@ typedef struct
 /// @section OBJECT INITIALIZATION
 ///========================================
 
-=======
-typedef struct
-{
-  float proportional_gain;       ///< Gain of proportional term
-  float integral_gain;           ///< Gain of integral term
-  float derivative_gain;         ///< Gain of derivative term
-  ControllerDirection direction; ///< Direction of the controller (direct or reverse)
-} ControllerParameters;
-
-///========================================
-/// @section OBJECT INITIALIZATION
-///========================================
-
->>>>>>> 7156fcf (Large Update)
 // Initialize enum and struct instances
 SensorReadings lastReadings;
 SensorReadings currentReadings;
 SensorReadings initialReadings;
-Direction direction;
+static Direction direction;
 
 // Controlling configurations
 ControllerParameters paramsNeutralSteering = {0.00, 0.00, 0.00, ControllerDirection::DIRECT};
@@ -193,20 +142,20 @@ ThreeStateController anticlockwiseSteering(paramsAnticlockwiseSteering.direction
 ThreeStateController clockwiseSteering(paramsClockwiseSteering.direction);
 ThreeStateController gyroscopeSteering(paramsGyroSteering.direction);
 
-///----------------------------------------
-/// @subsection SETUP
-///----------------------------------------
+///========================================
+/// @section SETUP FUNCTION
+///========================================
 
 /**
  * @brief Setup function for the Arduino sketch.
  */
-<<<<<<< HEAD
 void setup()
 {
   // Serial and Wire Initialization
   Serial.begin(9600);
   Wire.begin();
 
+  // Hardware Initialization
   imu.begin();
   lcd.init();
   lcd.backlight();
@@ -215,6 +164,7 @@ void setup()
   motor.init();
   motor.setAcceleration(100);
 
+  // Controller Initialization
   driveStraightPID.setLimits(SteeringAngles::MAX_LEFT, SteeringAngles::MAX_RIGHT);
   driveStraightPID.tune(paramsDriveStraightPID.proportional_gain, paramsDriveStraightPID.integral_gain, paramsDriveStraightPID.derivative_gain);
   driveStraightPID.setpoint(90);
@@ -222,7 +172,6 @@ void setup()
   neutralSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
   neutralSteering.setHysteresis(1);
 
-<<<<<<< HEAD
   anticlockwiseSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
   anticlockwiseSteering.setpoint(RaceDistances::SETPOINT_DISTANCE);
   anticlockwiseSteering.setHysteresis(1);
@@ -231,43 +180,26 @@ void setup()
   clockwiseSteering.setpoint(RaceDistances::SETPOINT_DISTANCE);
   clockwiseSteering.setHysteresis(1);
 
-=======
-  neutralSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  neutralSteering.setHysteresis(1);
-
-  anticlockwiseSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  anticlockwiseSteering.setpoint(RaceDistances::SETPOINT_DISTANCE);
-  anticlockwiseSteering.setHysteresis(1);
-
-  clockwiseSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  clockwiseSteering.setpoint(RaceDistances::SETPOINT_DISTANCE);
-  clockwiseSteering.setHysteresis(1);
-
->>>>>>> 7156fcf (Large Update)
   gyroscopeSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
   gyroscopeSteering.setpoint(0);
   gyroscopeSteering.setHysteresis(1);
 
+  // Initial LCD image
   lcd.setCursor(2, 0);
   lcd.print("PRESS BUTTON");
   lcd.setCursor(4, 1);
   lcd.print("TO START");
 }
 
-///----------------------------------------
+///========================================
 /// @section MAIN PROGRAM
-///----------------------------------------
+///========================================
 
 /**
  * @brief Main loop function for the Arduino sketch.
  */
-<<<<<<< HEAD
 void loop()
 {
-=======
-void loop()
-{
->>>>>>> 7156fcf (Large Update)
 
   // Update all of the measured values
   button.update();
@@ -275,16 +207,11 @@ void loop()
   sonarMeasurementSequence();
   motor.update();
 
-  // Assign the modified sensor readings to variables
-  currentReadings.button_count = button.getCount();
-  currentReadings.voltage = map(analogRead(Pins::VOLTMETER_PIN), 0, 1023, 0, 100);
-  currentReadings.yaw_angle = imu.getAngleZ() - initialReadings.yaw_angle;
-  currentReadings.angular_velocity = imu.getGyroZ();
-  currentReadings.distance_front = sonarFront.getDistance();
-  currentReadings.distance_left = sonarLeft.getDistance();
-  currentReadings.distance_right = sonarRight.getDistance();
+  updateReadings();
 
-  if (currentReadings.button_count == 1)
+  switch (currentReadings.button_count)
+  {
+  case 1:
   {
     static bool is_booted_up, direction_set;
 
@@ -331,12 +258,12 @@ void loop()
     }
   }
   break;
-case 2:
-{
-  stop();
-}
-break;
-}
+  case 2:
+  {
+    stop();
+  }
+  break;
+  }
 }
 
 ///========================================
@@ -492,63 +419,13 @@ bool gapDetected()
   }
   else
   {
-=======
-}
-
-/**
- * @brief Function to print the sensor readings on the LCD display.
- */
-void lcdPrintValues()
-{
-  static unsigned long last_ms;
-  static bool setup_print_values;
-
-  if (millis() - last_ms > 200)
-  {
-    last_ms = millis();
-
-    if (!setup_print_values)
-    {
-      lcdPrintValueSetup();
-      setup_print_values = !setup_print_values;
-    }
-
-    lcdUpdate(lastReadings.distance_left, currentReadings.distance_left, 1, 0, 2, false);
-    lcdUpdate(lastReadings.distance_front, currentReadings.distance_front, 5, 0, 2, false);
-    lcdUpdate(lastReadings.distance_right, currentReadings.distance_right, 9, 0, 2, false);
-    lcdUpdate(lastReadings.yaw_angle, currentReadings.yaw_angle, 12, 0, 3, true);
-    lcdUpdate(lastReadings.voltage, currentReadings.voltage, 14, 1, 2, false);
-  }
-}
-
-///----------------------------------------
-/// @subsubsection ACCESORS
-///----------------------------------------
-
-/**
- * @brief Checks if there is a large gap to the left or the right, depending on the direction.
- * @return True if large horizontal distance is detected.
- */
-bool gapDetected()
-{
-  if (direction == Direction::ANTI_CLOCKWISE && currentReadings.distance_left >= RaceDistances::MAX_DISTANCE)
-  {
-    return true;
-  }
-  else if (direction == Direction::CLOCKWISE && currentReadings.distance_right >= RaceDistances::MAX_DISTANCE)
-  {
-    return true;
-  }
-  else
-  {
->>>>>>> 7156fcf (Large Update)
     return false;
   }
 }
 
 /**
  * @brief Gets the direction based on whether the gap is to the left or the right side.
- * @return The direction.
+ * @return True if the direction has been determined, false otherwise.
  */
 bool getDirection()
 {
@@ -602,70 +479,12 @@ bool isFinalSection()
   }
 }
 
-=======
-* @ return True if the direction has been determined, false otherwise.
-                                                              * /
-                                                          bool getDirection()
-{
-  if (currentReadings.distance_left >= RaceDistances::MAX_DISTANCE)
-  {
-    direction = Direction::ANTI_CLOCKWISE;
-    return true;
-  }
-  else if (currentReadings.distance_right >= RaceDistances::MAX_DISTANCE)
-  {
-    direction = Direction::CLOCKWISE;
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-/**
- * @brief Gets the number of sections completed by the robot.
- * @return The amount of completed sections.
- */
-uint8_t getSections()
-{
-  return abs(currentReadings.yaw_angle) / 90;
-}
-
-/**
- * @brief Gets the number of laps completed by the robot.
- * @return The amount of completed rounds.
- */
-uint8_t getLaps()
-{
-  return abs(currentReadings.yaw_angle) / 360;
-}
-
-/**
- * @brief Checks whether the robot is driving the final section.
- * @return True if the robot will now go through the final section, false otherwise.
- */
-bool isFinalSection()
-{
-  if (getLaps() == 3)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-
->>>>>>> 7156fcf (Large Update)
 ///----------------------------------------
 /// @subsection MANOEUVRES
 ///----------------------------------------
 
 /**
  * @brief Manoeuvre for turning left or right, depending on the direction.
-<<<<<<< HEAD
  */
 void turn()
 {
@@ -696,39 +515,6 @@ void stop()
   lcd.noBacklight();
 }
 
-=======
-* /
-    void turn()
-{
-  motor.setSpeed(50);
-  switch (direction)
-  {
-  case Direction::ANTI_CLOCKWISE:
-  {
-    servo.write(SteeringAngles::MAX_LEFT);
-  }
-  break;
-  case Direction::CLOCKWISE:
-  {
-    servo.write(SteeringAngles::MAX_RIGHT);
-  }
-  break;
-  }
-}
-
-/**
- * @brief Short routine for stopping the robot.
- */
-void stop()
-{
-  servo.write(SteeringAngles::STRAIGHT);
-  motor.stop();
-  lcdShutdown();
-  lcd.noBacklight();
-}
-
-
->>>>>>> 7156fcf (Large Update)
 ///----------------------------------------
 /// @subsection CONTROL LOOPS
 ///----------------------------------------
@@ -737,7 +523,6 @@ void stop()
  * @brief Method which combines the  different types of control loops
   used in this program by linking each of them to different conditions.
 */
-<<<<<<< HEAD
 void autoSteering()
 {
   if (gapDetected())
@@ -788,58 +573,6 @@ void autoSteering()
     {
       gyroscopeControlLoop();
     }
-=======
-void autoSteering()
-{
-  if (gapDetected())
-  {
-    turn();
-  }
-  else
-  {
-    // Set the motor speed to default speed
-    motor.setSpeed(80);
-
-    // Choose fitting control loop depending on which conditions are fulfilled
-    switch (direction)
-    {
-    case Direction::ANTI_CLOCKWISE:
-    {
-      if (isFinalSection())
-      {
-        anticlockwiseSteering.setpoint(initialReadings.distance_left);
-      }
-      if (currentReadings.distance_left <= 35 || currentReadings.distance_left >= 45)
-      {
-        directionDependentControlLoop();
-      }
-      else
-      {
-        gyroscopeControlLoop();
-      }
-    }
-    break;
-    case Direction::CLOCKWISE:
-    {
-      if (isFinalSection())
-      {
-        anticlockwiseSteering.setpoint(initialReadings.distance_left);
-      }
-      if (currentReadings.distance_right <= 35 || currentReadings.distance_right >= 45)
-      {
-        directionDependentControlLoop();
-      }
-      else
-      {
-        gyroscopeControlLoop();
-      }
-    }
-    break;
-    default:
-    {
-      gyroscopeControlLoop();
-    }
->>>>>>> 7156fcf (Large Update)
     }
   }
 }
@@ -863,7 +596,6 @@ void neutralControlLoop()
 
 /**
  * @brief Simple three state controller that makes the robot approximate
-<<<<<<< HEAD
  the distance to a given setpoint value.
 */
 void directionDependentControlLoop()
@@ -893,27 +625,6 @@ void directionDependentControlLoop()
 }
 
 /**
- * @brief Simple three state controller that makes the robot approximate
- the left distance to the right distance.
-*/
-void neutralControlLoop()
-{
-  int16_t input, output;
-
-  // Set the speed of the robot
-  motor.setSpeed(80);
-
-  input = currentReadings.distance_left;
-  neutralSteering.setpoint(currentReadings.distance_right);
-  neutralSteering.update(input);
-  output = neutralSteering.getOutput();
-
-  // Set the steering angle to the computed output value
-  servo.write(output);
-}
-
-/**
-<<<<<<< HEAD
  * @brief Simple three state controller which tries to approximate the angular
  velocity to zero.
 */
@@ -921,113 +632,34 @@ void gyroscopeControlLoop()
 {
   int16_t input, output;
 
-=======
-  *@brief Simple three state controller that makes the robot approximate
-          the distance to a given setpoint value.
-              * /
-      void directionDependentControlLoop()
-  {
-    int16_t input, output;
+  input = currentReadings.angular_velocity;
+  gyroscopeSteering.update(input);
+  output = gyroscopeSteering.getOutput();
 
-    switch (direction)
-    {
-    case Direction::ANTI_CLOCKWISE:
-    {
-      input = currentReadings.distance_left;
-      anticlockwiseSteering.update(input);
-      output = anticlockwiseSteering.getOutput();
-    }
-    break;
-    case Direction::CLOCKWISE:
-    {
-      input = currentReadings.distance_right;
-      clockwiseSteering.update(input);
-      output = clockwiseSteering.getOutput();
-    }
-    break;
-    }
+  // Set the steering angle to the computed output value
+  servo.write(output);
+}
 
-    // Set the steering angle to the computed output value
-    servo.write(output);
-  }
+/**
+ * @brief Control loop that makes the robot drive straight in the centre
+ of the parcour.
+*/
 
-  /**
-   * @brief Simple three state controller which tries to approximate the angular
-   velocity to zero.
-  */
-  void gyroscopeControlLoop()
-  {
-    int16_t input, output;
+void driveStraightControlLoop()
+{
+  int16_t horizontal_distance, input, output;
 
->>>>>>> 7156fcf (Large Update)
-    input = currentReadings.angular_velocity;
-    gyroscopeSteering.update(input);
-    output = gyroscopeSteering.getOutput();
+  // Set the speed of the robot
+  motor.setSpeed(70);
 
-    // Set the steering angle to the computed output value
-    servo.write(output);
-  }
+  horizontal_distance = currentReadings.distance_left + currentReadings.distance_right;
+  input = map(currentReadings.distance_left, 0, horizontal_distance, 0, 180);
+  driveStraightPID.update(input);
+  output = driveStraightPID.getOutput();
 
-<<<<<<< HEAD
-=======
+  // Set the steering angle to the computed output value
+  servo.write(output);
 
->>>>>>> 7156fcf (Large Update)
-  /**
-   * @brief Control loop that makes the robot drive straight in the centre
-   of the parcour.
-  */
-
-<<<<<<< HEAD
-  void driveStraightControlLoop()
-  {
-=======
-  void driveStraightControlLoop()
-  {
->>>>>>> 7156fcf (Large Update)
-    int16_t horizontal_distance, input, output;
-
-    // Set the speed of the robot
-    motor.setSpeed(70);
-
-    horizontal_distance = currentReadings.distance_left + currentReadings.distance_right;
-    input = map(currentReadings.distance_left, 0, horizontal_distance, 0, 180);
-    driveStraightPID.update(input);
-    output = driveStraightPID.getOutput();
-
-    // Set the steering angle to the computed output value
-    servo.write(output);
-
-    // Print the raw input, output and setpoint values with Serial Plotter
-    driveStraightPID.serialPlotGraph();
-<<<<<<< HEAD
-  }
-
-  ///----------------------------------------
-  /// @section LCD ENHANCEMENT
-  ///----------------------------------------
-
-  /**
-   * @brief Function to print the sensor readings on the LCD display.
-   */
-  void lcdPrintValues()
-  {
-    static unsigned long last_ms;
-    static bool setup_print_values;
-
-    if (millis() - last_ms > 200)
-    {
-      last_ms = millis();
-
-      if (!setup_print_values)
-      {
-        lcdPrintValueSetup();
-        setup_print_values = !setup_print_values;
-      }
-
-      lcdUpdate(lastReadings.distance_left, currentReadings.distance_left, 1, 0, 2, false);
-      lcdUpdate(lastReadings.distance_front, currentReadings.distance_front, 5, 0, 2, false);
-      lcdUpdate(lastReadings.distance_right, currentReadings.distance_right, 9, 0, 2, false);
-      lcdUpdate(lastReadings.yaw_angle, currentReadings.yaw_angle, 12, 0, 3, true);
-      lcdUpdate(lastReadings.voltage, currentReadings.voltage, 14, 1, 2, false);
-    }
-  }
+  // Print the raw input, output and setpoint values with Serial Plotter
+  driveStraightPID.serialPlotGraph();
+}
