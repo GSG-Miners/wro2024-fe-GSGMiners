@@ -1,9 +1,9 @@
 /**
  * @file demo_008_controller_v3.ino
  * @brief This sketch is used to test out an initial three point controller.
- * @date 23rd December 2023 - 3rd February 2024
  * @author Maximilian Kautzsch
- * @details Last modified by Maximilian Kautzsch,
+ * @date Created on 23rd December 2023
+ * @date Last modified on 29th January 2024 by Maximilian Kautzsch,
  * Finnian Belger & Logan Weigoldt
  */
 
@@ -14,11 +14,11 @@
 #include "button.h"
 #include "lcd_display.h"
 #include "dc_motor.h"
-#include "controlling.h"
+#include "pid_controller.h"
 
-///========================================
+///----------------------------------------
 /// @section CONFIG
-///========================================
+///----------------------------------------
 
 ///----------------------------------------
 /// @subsection ENUMS
@@ -30,27 +30,17 @@
  */
 enum Pins : const pin_size_t
 {
-  TRIGGER_PIN_LEFT = 4,
-  ECHO_PIN_LEFT = 3,
-  TRIGGER_PIN_FRONT = 9,
-  ECHO_PIN_FRONT = 8,
-  TRIGGER_PIN_RIGHT = 17,
-  ECHO_PIN_RIGHT = 16,
-  VOLTMETER_PIN = 14,
-  BUTTON_PIN = 15,
-  MOTOR_FORWARD_PIN = 5,
-  MOTOR_BACKWARD_PIN = 6,
-  SERVO_PIN = 7
-};
-
-/**
- * @enum Direction
- * @enum Enum to store names for the directions.
- */
-enum Direction : const bool
-{
-  CLOCKWISE = false,
-  ANTI_CLOCKWISE = true
+  kTriggerPinLeft = 4,
+  kEchoPinLeft = 3,
+  kTriggerPinFront = 9,
+  kEchoPinFront = 8,
+  kTriggerPinRight = 17,
+  kEchoPinRight = 16,
+  kVoltageMeasurementPin = 14,
+  kButtonPin = 15,
+  kMotorForwardPin = 5,
+  kMotorBackwardPin = 6,
+  kServoPin = 7,
 };
 
 /**
@@ -59,20 +49,29 @@ enum Direction : const bool
  */
 enum SteeringAngles : const uint8_t
 {
-  MAX_LEFT = 47,
-  MAX_RIGHT = 124,
-  STRAIGHT = 90
+  kMaxLeft = 47,
+  kMaxRight = 118,
+  kStraight = 90
 };
 
 /**
- * @enum RaceDistances
- * @brief Enum to hold race specific distance values.
+ * @enum RaceConstants
+ * @brief Enum to hold race specific constant parameters.
  */
-enum RaceDistances : const uint8_t
+enum RaceConstants : const uint8_t
 {
-  SETPOINT_DISTANCE = 40,
-  MIN_DISTANCE = 5,
-  MAX_DISTANCE = 130
+  kMinDistance = 5,
+  kMaxDistance = 130
+};
+
+/**
+ * @enum Direction
+ * @enum Enum to store names for the directions.
+ */
+enum Direction : const bool
+{
+  kClockwise = false,
+  kAntiClockwise = true
 };
 
 ///----------------------------------------
@@ -95,10 +94,9 @@ typedef struct
 } SensorReadings;
 
 /**
-  * @struct ControllerParameters
-  * @brief Struct to store all attributes that are used to configure a three state controller
- or PID controller.
-*/
+ * @struct ControllerParameters
+ * @brief Struct to store all attributes that are used to configure a PID controller.
+ */
 typedef struct
 {
   float proportional_gain;       ///< Gain of proportional term
@@ -107,93 +105,69 @@ typedef struct
   ControllerDirection direction; ///< Direction of the controller (direct or reverse)
 } ControllerParameters;
 
-///========================================
-/// @section OBJECT INITIALIZATION
-///========================================
+/**
+ * @struct RaceParameters
+ * @brief Struct to store all the relevant race parameters.
+ */
+typedef struct
+{
+  Direction direction; ///< The direction of the race.
+} RaceParameters;
 
-// Initialize enum and struct instances
+// Initialize struct instances
 SensorReadings lastReadings;
 SensorReadings currentReadings;
 SensorReadings initialReadings;
-static Direction direction;
+ControllerParameters paramsDriveStraightPID = {3.00, 1.20, 0.50, ControllerDirection::kDirect};
+RaceParameters raceParameters;
 
-// Controlling configurations
-ControllerParameters paramsNeutralSteering = {0.00, 0.00, 0.00, ControllerDirection::DIRECT};
-ControllerParameters paramsFinalSectionSteering = {0.00, 0.00, 0.00, ControllerDirection::DIRECT};
-ControllerParameters paramsAnticlockwiseSteering = {0.00, 0.00, 0.00, ControllerDirection::DIRECT};
-ControllerParameters paramsClockwiseSteering = {0.00, 0.00, 0.00, ControllerDirection::REVERSE};
-ControllerParameters paramsGyroSteering = {0.00, 0.00, 0.00, ControllerDirection::DIRECT};
+///----------------------------------------
+/// @subsection OBJECTS
+///----------------------------------------
 
-ControllerParameters paramsDriveStraightPID = {3.00, 1.20, 0.50, ControllerDirection::DIRECT};
-
-// Initialize the hardware objects
-Button button(Pins::BUTTON_PIN);
-UltrasonicSensor sonarLeft(Pins::TRIGGER_PIN_LEFT, Pins::ECHO_PIN_LEFT, SonarMode::MANUAL);
-UltrasonicSensor sonarFront(Pins::TRIGGER_PIN_FRONT, Pins::ECHO_PIN_FRONT, SonarMode::MANUAL);
-UltrasonicSensor sonarRight(Pins::TRIGGER_PIN_RIGHT, Pins::ECHO_PIN_RIGHT, SonarMode::MANUAL);
+// Initialize the sensor and button objects
+Button button(Pins::kButtonPin);
+UltrasonicSensor sonarLeft(Pins::kTriggerPinLeft, Pins::kEchoPinLeft, SonarMode::kManual);
+UltrasonicSensor sonarFront(Pins::kTriggerPinFront, Pins::kEchoPinFront, SonarMode::kManual);
+UltrasonicSensor sonarRight(Pins::kTriggerPinRight, Pins::kEchoPinRight, SonarMode::kManual);
 MPU6050 imu(Wire);
-Motor motor(Pins::MOTOR_FORWARD_PIN, Pins::MOTOR_BACKWARD_PIN);
+Motor motor(Pins::kMotorForwardPin, Pins::kMotorBackwardPin);
 Servo servo;
-
-// Initialize the controller objects
 PIDController driveStraightPID(paramsDriveStraightPID.direction);
-ThreeStateController neutralSteering(paramsNeutralSteering.direction);
-ThreeStateController anticlockwiseSteering(paramsAnticlockwiseSteering.direction);
-ThreeStateController clockwiseSteering(paramsClockwiseSteering.direction);
-ThreeStateController gyroscopeSteering(paramsGyroSteering.direction);
 
-///========================================
-/// @section SETUP FUNCTION
-///========================================
+///----------------------------------------
+/// @subsection SETUP
+///----------------------------------------
 
 /**
  * @brief Setup function for the Arduino sketch.
  */
 void setup()
 {
-  // Serial and Wire Initialization
   Serial.begin(9600);
   Wire.begin();
 
-  // Hardware Initialization
   imu.begin();
   lcd.init();
   lcd.backlight();
 
-  servo.attach(Pins::SERVO_PIN);
+  servo.attach(Pins::kServoPin);
   motor.init();
   motor.setAcceleration(100);
 
-  // Controller Initialization
-  driveStraightPID.setLimits(SteeringAngles::MAX_LEFT, SteeringAngles::MAX_RIGHT);
+  driveStraightPID.setLimits(SteeringAngles::kMaxLeft, SteeringAngles::kMaxRight);
   driveStraightPID.tune(paramsDriveStraightPID.proportional_gain, paramsDriveStraightPID.integral_gain, paramsDriveStraightPID.derivative_gain);
   driveStraightPID.setpoint(90);
 
-  neutralSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  neutralSteering.setHysteresis(1);
-
-  anticlockwiseSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  anticlockwiseSteering.setpoint(RaceDistances::SETPOINT_DISTANCE);
-  anticlockwiseSteering.setHysteresis(1);
-
-  clockwiseSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  clockwiseSteering.setpoint(RaceDistances::SETPOINT_DISTANCE);
-  clockwiseSteering.setHysteresis(1);
-
-  gyroscopeSteering.setSteeringAngles(SteeringAngles::STRAIGHT, 85, 100);
-  gyroscopeSteering.setpoint(0);
-  gyroscopeSteering.setHysteresis(1);
-
-  // Initial LCD image
   lcd.setCursor(2, 0);
   lcd.print("PRESS BUTTON");
   lcd.setCursor(4, 1);
   lcd.print("TO START");
 }
 
-///========================================
+///----------------------------------------
 /// @section MAIN PROGRAM
-///========================================
+///----------------------------------------
 
 /**
  * @brief Main loop function for the Arduino sketch.
@@ -207,112 +181,78 @@ void loop()
   sonarMeasurementSequence();
   motor.update();
 
-  updateReadings();
+  // Assign the modified sensor readings to variables
+  currentReadings.button_count = button.getCount();
+  currentReadings.voltage = map(analogRead(Pins::kVoltageMeasurementPin), 0, 1023, 0, 100);
+  currentReadings.yaw_angle = imu.getAngleZ() - initialReadings.yaw_angle;
+  currentReadings.angular_velocity = imu.getGyroZ();
+  currentReadings.distance_front = sonarFront.getDistance();
+  currentReadings.distance_left = sonarLeft.getDistance();
+  currentReadings.distance_right = sonarRight.getDistance();
 
-  switch (currentReadings.button_count)
+  if (currentReadings.button_count == 1)
   {
-  case 1:
-  {
-    static bool is_booted_up, direction_set;
+    static bool bootup_phase, setup_direction;
 
-    switch (is_booted_up)
+    switch (bootup_phase)
     {
     // Bootup of the robot
-    case false:
+    case 0:
     {
-      bootupRobot();
-      is_booted_up = true;
+      imu.calcOffsets();
+      initialReadings.yaw_angle = imu.getAngleZ();
+
+      lcdBootup();
+      lcdClear();
+      bootup_phase = !bootup_phase;
     }
     break;
 
     // Main code for controlling the robot
-    case true:
+    case 1:
     {
       // Display the measured values on the LCD
       lcdPrintValues();
 
-      // Get the direction initially
-      if (!direction_set)
+      // Automatic steering of the robot
+      if (!setup_direction)
       {
-        motor.setSpeed(80);
-        neutralControlLoop();
         if (getDirection())
         {
-          direction_set = true;
-        }
-      }
-      else
-      {
-        // Automatic steering of the robot
-        if (isFinalSection())
-        {
-          stop();
-        }
-        else
-        {
           autoSteering();
+          setup_direction = !setup_direction;
         }
       }
+
+      autoSteering();
     }
     break;
     }
   }
-  break;
-  case 2:
+  else if (currentReadings.button_count == 2)
   {
-    stop();
-  }
-  break;
+    lcdShutdown();
+    lcd.noBacklight();
+    servo.write(SteeringAngles::kStraight);
+    motor.stop();
   }
 }
 
-///========================================
+///----------------------------------------
 /// @section ALGORITHMS
-///========================================
-
-///----------------------------------------
-/// @subsection UTILITY FUNCTIONS
 ///----------------------------------------
 
 ///----------------------------------------
-/// @subsubsection GENERAL LOGIC
+/// @subsection HELPER FUNCTIONS
 ///----------------------------------------
 
 /**
- * @brief Checks whether a given number_A lies within the range of the deviation of number_B.
- * @param number_A The number to be checked.
- * @param number_B The reference number for the range.
- * @param deviation The amount of deviation allowed from the reference number.
- * @return True if number_A is within the range, false otherwise.
+ * @brief Gets the number of laps completed by the robot.
+ * @return The amount of completed rounds.
  */
-bool isInRange(int16_t number_A, uint16_t number_B, uint16_t deviation)
+uint8_t getLaps()
 {
-  int16_t lower_bound = number_A - deviation;
-  int16_t upper_bound = number_B + deviation;
-
-  return (number_A >= lower_bound && number_A <= upper_bound);
-}
-
-///----------------------------------------
-/// @subsubsection COMMAND SEQUENCES
-///----------------------------------------
-
-/**
- * @brief Initizializes all of the sensor readings and boots up the LCD.
- */
-void bootupRobot()
-{
-  imu.calcOffsets();
-
-  // Store the initial sensor readings in seperate structure
-  initialReadings.yaw_angle = imu.getAngleZ();
-  initialReadings.distance_front = sonarFront.getDistance();
-  initialReadings.distance_left = sonarLeft.getDistance();
-  initialReadings.distance_right = sonarRight.getDistance();
-
-  // Bootup animation of the LCD
-  lcdBootup();
-  lcdClear();
+  return abs(currentReadings.yaw_angle) / 350;
 }
 
 /**
@@ -360,18 +300,232 @@ void sonarMeasurementSequence()
 }
 
 /**
- * @brief Method used for updating all of the current readings from the sensors.
+ * @brief Checks if there is a large gap to the left or the right.
+ * @return True if large horizontal distance is detected.
  */
-void updateReadings()
+bool gapDetected()
 {
-  currentReadings.button_count = button.getCount();
-  currentReadings.voltage = map(analogRead(Pins::VOLTMETER_PIN), 0, 1023, 0, 100);
-  currentReadings.yaw_angle = imu.getAngleZ() - initialReadings.yaw_angle;
-  currentReadings.angular_velocity = imu.getGyroZ();
-  currentReadings.distance_front = sonarFront.getDistance();
-  currentReadings.distance_left = sonarLeft.getDistance();
-  currentReadings.distance_right = sonarRight.getDistance();
+  switch (raceParameters.direction)
+  {
+  case Direction::kAntiClockwise:
+  {
+    if (currentReadings.distance_left >= RaceConstants::kMaxDistance)
+    {
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+  break;
+  case Direction::kClockwise:
+  {
+    if (currentReadings.distance_right >= RaceConstants::kMaxDistance)
+    {
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  }
+  break;
+  }
 }
+
+/**
+ * @brief Gets the direction based on whether the gap is to the left or the right side.
+ * @return The direction.
+ */
+bool getDirection()
+{
+  if (currentReadings.distance_left >= RaceConstants::kMaxDistance)
+  {
+    raceParameters.direction = Direction::kAntiClockwise;
+    return true;
+  }
+  else if (currentReadings.distance_right >= RaceConstants::kMaxDistance)
+  {
+    raceParameters.direction = Direction::kClockwise;
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+///----------------------------------------
+/// @subsection MANOEUVRES
+///----------------------------------------
+
+void autoSteering()
+{
+  static unsigned long last_ms;
+  if (millis() - last_ms > 10)
+  {
+    if (gapDetected())
+    {
+      turn();
+    }
+    else if (getLaps() == 3)
+    {
+      motor.stop();
+    }
+    else
+    {
+      switch (raceParameters.direction)
+      {
+      case Direction::kAntiClockwise:
+      {
+        if (currentReadings.distance_left >= 45 || currentReadings.distance_left <= 35)
+        {
+          threePointControlLoopV1();
+        }
+        else
+        {
+          threePointControlLoopV3();
+        }
+      }
+      break;
+      case Direction::kClockwise:
+      {
+        if (currentReadings.distance_right >= 45 || currentReadings.distance_right <= 35)
+        {
+          threePointControlLoopV2();
+        }
+        else
+        {
+          threePointControlLoopV3();
+        }
+      }
+      break;
+      }
+    }
+  }
+}
+
+/**
+ * @brief Manoeuvre for turning left or right, depending on the direction.
+ */
+void turn()
+{
+  motor.setSpeed(50);
+  switch (raceParameters.direction)
+  {
+  case Direction::kAntiClockwise:
+  {
+    servo.write(SteeringAngles::kMaxLeft);
+  }
+  break;
+  case Direction::kClockwise:
+  {
+    servo.write(SteeringAngles::kMaxRight);
+  }
+  break;
+  }
+}
+
+///----------------------------------------
+/// @subsection CONTROL LOOPS
+///----------------------------------------
+
+/**
+ * @brief Simple three point controller that makes the robot approximate
+ the distance to a given setpoint value.
+*/
+void threePointControlLoopV1()
+{
+  const uint8_t setpoint = 40;
+  const uint8_t hysterese = 1;
+  const uint8_t left_steering_angle = 85;
+  const uint8_t right_steering_angle = 100;
+
+  // Set the speed of the robot
+  motor.setSpeed(80);
+
+  // Adjust the steering angle according to the left distance
+  if (currentReadings.distance_left <= setpoint - hysterese)
+  {
+    servo.write(right_steering_angle);
+  }
+  else if (currentReadings.distance_left >= setpoint + hysterese)
+  {
+    servo.write(left_steering_angle);
+  }
+}
+
+void threePointControlLoopV2()
+{
+  const uint8_t setpoint = 45;
+  const uint8_t hysterese = 1;
+  const uint8_t left_steering_angle = 85;
+  const uint8_t right_steering_angle = 100;
+
+  // Set the speed of the robot
+  motor.setSpeed(80);
+
+  // Adjust the steering angle according to the left distance
+  if (currentReadings.distance_right <= setpoint - hysterese)
+  {
+    servo.write(left_steering_angle);
+  }
+  else if (currentReadings.distance_right >= setpoint + hysterese)
+  {
+    servo.write(right_steering_angle);
+  }
+}
+
+/**
+ * @brief Tries to keep the yaw angle at initial angle.
+ */
+void threePointControlLoopV3()
+{
+  const uint8_t hysterese = 1;
+  const uint8_t left_steering_angle = 85;
+  const uint8_t right_steering_angle = 100;
+
+  // Set the speed of the robot
+  motor.setSpeed(80);
+
+  // Adjust the steering angle according to the left distance
+  if (currentReadings.angular_velocity <= hysterese && currentReadings.angular_velocity >= -hysterese)
+  {
+    servo.write(SteeringAngles::kStraight);
+  }
+  else if (currentReadings.angular_velocity > hysterese)
+  {
+    servo.write(right_steering_angle);
+  }
+  else if (currentReadings.angular_velocity < -hysterese)
+  {
+    servo.write(left_steering_angle);
+  }
+}
+
+/**
+ * @brief Control loop that makes the robot drive straight in the centre
+ of the parcour.
+*/
+void driveStraightControlLoop()
+{
+  int16_t horizontal_distance, input, output;
+
+  motor.setSpeed(70);
+
+  horizontal_distance = currentReadings.distance_left + currentReadings.distance_right;
+  input = map(currentReadings.distance_left, 0, horizontal_distance, 0, 180);
+  driveStraightPID.update(input);
+  output = driveStraightPID.getOutput();
+  servo.write(output);
+
+  driveStraightPID.serialPlotGraph();
+}
+
+///----------------------------------------
+/// @section LCD ENHANCEMENT
+///----------------------------------------
 
 /**
  * @brief Function to print the sensor readings on the LCD display.
@@ -394,272 +548,7 @@ void lcdPrintValues()
     lcdUpdate(lastReadings.distance_left, currentReadings.distance_left, 1, 0, 2, false);
     lcdUpdate(lastReadings.distance_front, currentReadings.distance_front, 5, 0, 2, false);
     lcdUpdate(lastReadings.distance_right, currentReadings.distance_right, 9, 0, 2, false);
-    lcdUpdate(lastReadings.yaw_angle, currentReadings.yaw_angle, 12, 0, 3, true);
+    lcdUpdate(lastReadings.yaw_angle, currentReadings.yaw_angle, 12, 0, 4, false);
     lcdUpdate(lastReadings.voltage, currentReadings.voltage, 14, 1, 2, false);
   }
-}
-
-///----------------------------------------
-/// @subsubsection ACCESORS
-///----------------------------------------
-
-/**
- * @brief Checks if there is a large gap to the left or the right, depending on the direction.
- * @return True if large horizontal distance is detected.
- */
-bool gapDetected()
-{
-  if (direction == Direction::ANTI_CLOCKWISE && currentReadings.distance_left >= RaceDistances::MAX_DISTANCE)
-  {
-    return true;
-  }
-  else if (direction == Direction::CLOCKWISE && currentReadings.distance_right >= RaceDistances::MAX_DISTANCE)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-/**
- * @brief Gets the direction based on whether the gap is to the left or the right side.
- * @return True if the direction has been determined, false otherwise.
- */
-bool getDirection()
-{
-  if (currentReadings.distance_left >= RaceDistances::MAX_DISTANCE)
-  {
-    direction = Direction::ANTI_CLOCKWISE;
-    return true;
-  }
-  else if (currentReadings.distance_right >= RaceDistances::MAX_DISTANCE)
-  {
-    direction = Direction::CLOCKWISE;
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-/**
- * @brief Gets the number of sections completed by the robot.
- * @return The amount of completed sections.
- */
-uint8_t getSections()
-{
-  return abs(currentReadings.yaw_angle) / 90;
-}
-
-/**
- * @brief Gets the number of laps completed by the robot.
- * @return The amount of completed rounds.
- */
-uint8_t getLaps()
-{
-  return abs(currentReadings.yaw_angle) / 360;
-}
-
-/**
- * @brief Checks whether the robot is driving the final section.
- * @return True if the robot will now go through the final section, false otherwise.
- */
-bool isFinalSection()
-{
-  if (getLaps() == 3)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-///----------------------------------------
-/// @subsection MANOEUVRES
-///----------------------------------------
-
-/**
- * @brief Manoeuvre for turning left or right, depending on the direction.
- */
-void turn()
-{
-  motor.setSpeed(50);
-  switch (direction)
-  {
-  case Direction::ANTI_CLOCKWISE:
-  {
-    servo.write(SteeringAngles::MAX_LEFT);
-  }
-  break;
-  case Direction::CLOCKWISE:
-  {
-    servo.write(SteeringAngles::MAX_RIGHT);
-  }
-  break;
-  }
-}
-
-/**
- * @brief Short routine for stopping the robot.
- */
-void stop()
-{
-  servo.write(SteeringAngles::STRAIGHT);
-  motor.stop();
-  lcdShutdown();
-  lcd.noBacklight();
-}
-
-///----------------------------------------
-/// @subsection CONTROL LOOPS
-///----------------------------------------
-
-/**
- * @brief Method which combines the  different types of control loops
-  used in this program by linking each of them to different conditions.
-*/
-void autoSteering()
-{
-  if (gapDetected())
-  {
-    turn();
-  }
-  else
-  {
-    // Set the motor speed to default speed
-    motor.setSpeed(80);
-
-    // Choose fitting control loop depending on which conditions are fulfilled
-    switch (direction)
-    {
-    case Direction::ANTI_CLOCKWISE:
-    {
-      if (isFinalSection())
-      {
-        anticlockwiseSteering.setpoint(initialReadings.distance_left);
-      }
-      if (currentReadings.distance_left <= anticlockwiseSteering.getSetpoint() - anticlockwiseSteering.getHysteresis() || currentReadings.distance_left >= anticlockwiseSteering.getSetpoint() + anticlockwiseSteering.getHysteresis())
-      {
-        directionDependentControlLoop();
-      }
-      else
-      {
-        gyroscopeControlLoop();
-      }
-    }
-    break;
-    case Direction::CLOCKWISE:
-    {
-      if (isFinalSection())
-      {
-        anticlockwiseSteering.setpoint(initialReadings.distance_left);
-      }
-      if (currentReadings.distance_right <= clockwiseSteering.getSetpoint() - clockwiseSteering.getHysteresis() || currentReadings.distance_right >= clockwiseSteering.getSetpoint() + clockwiseSteering.getHysteresis())
-      {
-        directionDependentControlLoop();
-      }
-      else
-      {
-        gyroscopeControlLoop();
-      }
-    }
-    break;
-    default:
-    {
-      gyroscopeControlLoop();
-    }
-    }
-  }
-}
-
-/**
- * @brief Simple three state controller that makes the robot approximate
- the left distance to the right distance.
-*/
-void neutralControlLoop()
-{
-  int16_t input, output;
-
-  input = currentReadings.distance_left;
-  neutralSteering.setpoint(currentReadings.distance_right);
-  neutralSteering.update(input);
-  output = neutralSteering.getOutput();
-
-  // Set the steering angle to the computed output value
-  servo.write(output);
-}
-
-/**
- * @brief Simple three state controller that makes the robot approximate
- the distance to a given setpoint value.
-*/
-void directionDependentControlLoop()
-{
-  int16_t input, output;
-
-  switch (direction)
-  {
-  case Direction::ANTI_CLOCKWISE:
-  {
-    input = currentReadings.distance_left;
-    anticlockwiseSteering.update(input);
-    output = anticlockwiseSteering.getOutput();
-  }
-  break;
-  case Direction::CLOCKWISE:
-  {
-    input = currentReadings.distance_right;
-    clockwiseSteering.update(input);
-    output = clockwiseSteering.getOutput();
-  }
-  break;
-  }
-
-  // Set the steering angle to the computed output value
-  servo.write(output);
-}
-
-/**
- * @brief Simple three state controller which tries to approximate the angular
- velocity to zero.
-*/
-void gyroscopeControlLoop()
-{
-  int16_t input, output;
-
-  input = currentReadings.angular_velocity;
-  gyroscopeSteering.update(input);
-  output = gyroscopeSteering.getOutput();
-
-  // Set the steering angle to the computed output value
-  servo.write(output);
-}
-
-/**
- * @brief Control loop that makes the robot drive straight in the centre
- of the parcour.
-*/
-
-void driveStraightControlLoop()
-{
-  int16_t horizontal_distance, input, output;
-
-  // Set the speed of the robot
-  motor.setSpeed(70);
-
-  horizontal_distance = currentReadings.distance_left + currentReadings.distance_right;
-  input = map(currentReadings.distance_left, 0, horizontal_distance, 0, 180);
-  driveStraightPID.update(input);
-  output = driveStraightPID.getOutput();
-
-  // Set the steering angle to the computed output value
-  servo.write(output);
-
-  // Print the raw input, output and setpoint values with Serial Plotter
-  driveStraightPID.serialPlotGraph();
 }
