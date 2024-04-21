@@ -8,7 +8,7 @@
 #include <Wire.h>
 #include <MPU6050_light.h>
 #include <Servo.h>
-#include "UltrasonicSensor.h"
+#include <NewPing.h>
 #include "Button.h"
 #include "Display.h"
 #include "L298N.h"
@@ -18,7 +18,6 @@
 /// @section CONFIG
 ///----------------------------------------
 
-
 ///----------------------------------------
 /// @subsection ENUMS
 ///----------------------------------------
@@ -26,8 +25,9 @@
 /**
  * @enum Direction
  * @enum Enum to store names for the directions.
-*/
-enum Direction : const uint8_t {
+ */
+enum Direction : const uint8_t
+{
   NONE,
   CLOCKWISE,
   ANTICLOCKWISE
@@ -37,7 +37,8 @@ enum Direction : const uint8_t {
  * @enum Pins
  * @brief Enum to hold the pin numbers for the various components.
  */
-enum Pins : const pin_size_t {
+enum Pins : const pin_size_t
+{
   TRIGGER_PIN_LEFT = 4,
   ECHO_PIN_LEFT = 3,
   TRIGGER_PIN_FRONT = 9,
@@ -54,15 +55,15 @@ enum Pins : const pin_size_t {
 /**
  * @enum Thresholds
  * @brief Enum to hold race specific constant parameters.
-*/
-enum Thresholds : const uint8_t {
+ */
+enum Thresholds : const uint8_t
+{
   MAX_LEFT = 47,
   MAX_RIGHT = 124,
   STRAIGHT = 90,
   MIN_DISTANCE = 10,
-  MAX_DISTANCE = 130
+  MAX_DISTANCE = 200
 };
-
 
 ///----------------------------------------
 /// @subsection STRUCTURES
@@ -72,7 +73,8 @@ enum Thresholds : const uint8_t {
  * @struct Parameters
  * @brief Struct to group all global parameter values.
  */
-struct Parameters {
+struct Parameters
+{
   uint8_t voltage;
   uint16_t distance_left;
   uint16_t distance_front;
@@ -86,26 +88,35 @@ struct Parameters {
  * @struct Race
  * @brief Struct to group all race-specified global variables.
  */
-struct Race {
-  Direction direction = NONE;
+struct Race
+{
+  Direction direction;
+  bool just_turned;
   uint8_t sections;
   uint8_t laps;
   int16_t setpoint_angle;
 };
 
-Parameters last;
+static Parameters last;
 Parameters current;
-Parameters initial;
-Race race;
+static Parameters initial;
+static Race race;
 
 ///----------------------------------------
 /// @subsection OBJECTS
 ///----------------------------------------
 
+#define SONAR_NUM 3
+#define LEFT 0
+#define FRONT 1
+#define RIGHT 2
+
 // Initialize the sensor and button objects
-UltrasonicSensor sonarLeft(Pins::TRIGGER_PIN_LEFT, Pins::ECHO_PIN_LEFT);
-UltrasonicSensor sonarFront(Pins::TRIGGER_PIN_FRONT, Pins::ECHO_PIN_FRONT);
-UltrasonicSensor sonarRight(Pins::TRIGGER_PIN_RIGHT, Pins::ECHO_PIN_RIGHT);
+NewPing sonar[SONAR_NUM] = {
+    NewPing(Pins::TRIGGER_PIN_LEFT, Pins::ECHO_PIN_LEFT, 400),   // Left sonar
+    NewPing(Pins::TRIGGER_PIN_FRONT, Pins::ECHO_PIN_FRONT, 400), // Front sonar
+    NewPing(Pins::TRIGGER_PIN_RIGHT, Pins::ECHO_PIN_RIGHT, 400)  // Right sonar
+};
 MPU6050 imu(Wire);
 L298N motor(Pins::MOTOR_FORWARD_PIN, Pins::MOTOR_BACKWARD_PIN);
 Servo servo;
@@ -121,16 +132,14 @@ DoubleSetpointController controller(ControllerDirection::DIRECT);
 /**
  * @brief Setup function for the Arduino sketch.
  */
-void setup() {
+void setup()
+{
   // Init communication protocols
-  Serial.begin(9600);
+  Serial.begin(19200);
   Wire.begin();
 
   // Init sensors
   imu.begin();
-  sonarLeft.begin();
-  sonarFront.begin();
-  sonarRight.begin();
 
   // Init actuators
   motor.begin();
@@ -140,8 +149,10 @@ void setup() {
   controller.begin();
   controller.setStates(85, 90, 105);
   controller.setHysteresis(1);
-}
 
+  // Init direction
+  race.direction = NONE;
+}
 
 ///----------------------------------------
 /// @section MAIN PROGRAM
@@ -150,47 +161,50 @@ void setup() {
 /**
  * @brief Main loop function for the Arduino sketch.
  */
-void loop() {
-
+void loop()
+{
   // Initialize the robot
   begin();
 
-  // Update all of the sensors
-  sonarsUpdate();
-  imu.update();
-  current.yaw_angle = imu.getAngleZ() - initial.yaw_angle;
-  current.angular_velocity = imu.getGyroZ();
-  current.voltage = map(analogRead(Pins::VOLTAGE_MEASUREMENT_PIN), 0, 1023, 0, 100);
+  // Update the measurement values
+  updateSensors();
 
-  // Steering angle has changed
-  if (current.steering_angle != last.steering_angle) {
-    // Increment the amount of completed sections if robot just turned
-    if ((last.steering_angle == Thresholds::MAX_LEFT || last.steering_angle == MAX_RIGHT)
-        && current.steering_angle != Thresholds::MAX_LEFT
-        && current.steering_angle != Thresholds::MAX_RIGHT) {
-      race.sections++;
-      if (race.direction == Direction::ANTICLOCKWISE) {
-        race.setpoint_angle += 90;
-      } else if (race.direction == Direction::CLOCKWISE) {
-        race.setpoint_angle -= 90;
-      }
-    }
-    // Transfer angle to the servo motor
-    last.steering_angle = current.steering_angle;
-    servo.write(current.steering_angle);
-  }
+  // Update the actuator parameters
+  updateActuators();
+
+  Serial.print("Left:");
+  Serial.print(current.distance_left);
+  Serial.print("\t");
+  Serial.print("Front:");
+  Serial.print(current.distance_front);
+  Serial.print("\t");
+  Serial.print("Right:");
+  Serial.print(current.distance_right);
+  Serial.print("\n");
 
   // Main algorithm
-  if (getSections() == 0 && race.direction == NONE) {
+  if (abs(current.yaw_angle) <= 90 && race.direction == NONE)
+  {
     centreSteering();
     getDirection();
-  } else if (getLaps() == 3) {
+  }
+  else if (abs(current.yaw_angle) >= 970 && abs(current.yaw_angle) <= 1060)
+  {
+    centreSteering();
+  }
+  else if (abs(current.yaw_angle) >= 1060 && current.distance_front >= initial.distance_front - 10 && current.distance_front <= initial.distance_front + 10)
+  {
     stop();
-  } else {
+  }
+  else
+  {
     // Differenciate between straight and curve sections
-    if (detectedGap() && abs(current.yaw_angle) <= abs(race.setpoint_angle) - 20) {
+    if (detectedGap())
+    {
       turn();
-    } else {
+    }
+    else
+    {
       wallSteering();
     }
   }
@@ -200,7 +214,6 @@ void loop() {
 /// @section ALGORITHMS
 ///----------------------------------------
 
-
 ///----------------------------------------
 /// @subsection RACE-SPECIFIC METHODS
 ///----------------------------------------
@@ -208,13 +221,15 @@ void loop() {
 /**
  * @brief Checks whether the robot will collide soon.
  * @return True, if the robot collides.
-*/
-bool collisionRisk() {
-  if (current.distance_front <= Thresholds::MIN_DISTANCE
-      || current.distance_left <= Thresholds::MIN_DISTANCE
-      || current.distance_right <= Thresholds::MAX_DISTANCE) {
+ */
+bool collisionRisk()
+{
+  if (current.distance_front <= Thresholds::MIN_DISTANCE || current.distance_left <= Thresholds::MIN_DISTANCE || current.distance_right <= Thresholds::MAX_DISTANCE)
+  {
     return true;
-  } else {
+  }
+  else
+  {
     return false;
   }
 }
@@ -223,15 +238,17 @@ bool collisionRisk() {
  @brief Gets the amount of sections completed by the robot.
  @return The amount of completed sections.
 */
-uint8_t getSections() {
+uint8_t getSections()
+{
   return race.sections;
 }
 
 /**
  * @brief Gets the number of laps completed by the robot.
  * @return The amount of completed rounds.
-*/
-uint8_t getLaps() {
+ */
+uint8_t getLaps()
+{
   race.laps = race.sections / 4;
   return race.laps;
 }
@@ -239,18 +256,28 @@ uint8_t getLaps() {
 /**
  * @brief Checks if there is a large gap to the left or the right.
  * @return True if large horizontal distance is detected.
-*/
-bool detectedGap() {
-  if (race.direction == Direction::ANTICLOCKWISE) {
-    if (current.distance_left >= Thresholds::MAX_DISTANCE) {
+ */
+bool detectedGap()
+{
+  if (race.direction == Direction::ANTICLOCKWISE)
+  {
+    if (current.distance_left >= Thresholds::MAX_DISTANCE)
+    {
       return true;
-    } else {
+    }
+    else
+    {
       return false;
     }
-  } else if (race.direction == Direction::CLOCKWISE) {
-    if (current.distance_right >= Thresholds::MAX_DISTANCE) {
+  }
+  else if (race.direction == Direction::CLOCKWISE)
+  {
+    if (current.distance_right >= Thresholds::MAX_DISTANCE)
+    {
       return true;
-    } else {
+    }
+    else
+    {
       return false;
     }
   }
@@ -259,22 +286,20 @@ bool detectedGap() {
 /**
  * @brief Gets the race.direction based on whether the gap is to the left or the right side.
  * @return The race.direction.
-*/
-void getDirection() {
-  static bool direction_is_determined;
-
-  if (!direction_is_determined) {
-    if (current.distance_left >= Thresholds::MAX_DISTANCE) {
-      race.direction = Direction::ANTICLOCKWISE;
-      race.setpoint_angle = 90;
-      current.steering_angle = Thresholds::MAX_LEFT;
-      direction_is_determined = true;
-    } else if (current.distance_right >= Thresholds::MAX_DISTANCE) {
-      race.direction = Direction::CLOCKWISE;
-      race.setpoint_angle = -90;
-      current.steering_angle = Thresholds::MAX_RIGHT;
-      direction_is_determined = true;
-    }
+ */
+void getDirection()
+{
+  if (current.distance_left >= MAX_DISTANCE)
+  {
+    race.direction = Direction::ANTICLOCKWISE;
+    race.setpoint_angle = 90;
+    current.steering_angle = Thresholds::MAX_LEFT;
+  }
+  else if (current.distance_right >= MAX_DISTANCE)
+  {
+    race.direction = Direction::CLOCKWISE;
+    race.setpoint_angle = -90;
+    current.steering_angle = Thresholds::MAX_RIGHT;
   }
 }
 
@@ -285,38 +310,46 @@ void getDirection() {
 /**
  * @brief Steers towards the corresponding wall, depending
  * on the race.direction.
-*/
-void wallSteering() {
+ */
+void wallSteering()
+{
   // Transfer the default speed to the motor
   motor.write(100);
 
   // Calculate and store the output of the control loop
-  if (race.direction == Direction::ANTICLOCKWISE) {
+  if (race.direction == Direction::ANTICLOCKWISE)
+  {
     controller.setDirection(ControllerDirection::DIRECT);
     controller.setSetpoint(40);
     current.steering_angle = controller.getOutput(current.distance_left);
-  } else if (race.direction == Direction::CLOCKWISE) {
+  }
+  else if (race.direction == Direction::CLOCKWISE)
+  {
     controller.setDirection(ControllerDirection::REVERSE);
     controller.setSetpoint(45);
-    controller.getOutput(current.distance_right);
+    current.steering_angle = controller.getOutput(current.distance_right);
   }
 }
 
 /**
  * @brief Tries to avoid a collision with a wall or obstacle.
- * 
+ *
  * Sets the steering angle to the maximum and lowers the motor
  * speed.
-*/
-void avoidCollision() {
-  if (current.distance_front <= Thresholds::MIN_DISTANCE) {
+ */
+void avoidCollision()
+{
+  if (current.distance_front <= Thresholds::MIN_DISTANCE)
+  {
     motor.write(-60);
   }
-  if (current.distance_left <= Thresholds::MIN_DISTANCE) {
+  if (current.distance_left <= Thresholds::MIN_DISTANCE)
+  {
     motor.write(60);
     current.steering_angle = Thresholds::MAX_RIGHT;
   }
-  if (current.distance_right <= Thresholds::MIN_DISTANCE) {
+  if (current.distance_right <= Thresholds::MIN_DISTANCE)
+  {
     motor.write(60);
     current.steering_angle = Thresholds::MAX_LEFT;
   }
@@ -324,15 +357,17 @@ void avoidCollision() {
 
 /**
  * @brief Captures intial measurement values.
-*/
-void begin() {
+ */
+void begin()
+{
   static bool is_initialized;
 
-  if (!is_initialized) {
+  if (!is_initialized)
+  {
     imu.calcGyroOffsets();
     imu.update();
     initial.yaw_angle = imu.getAngleZ();
-    initial.distance_front = sonarFront.readDistance();
+    initial.distance_front = sonar[FRONT].ping_cm();
     is_initialized = true;
   }
 }
@@ -340,26 +375,31 @@ void begin() {
 /**
  * @brief Shuts the entire robot down.
  */
-void stop() {
+void stop()
+{
   current.steering_angle = Thresholds::STRAIGHT;
   motor.end();
+  servo.detach();
 }
 
 /**
  * @brief Manoeuvre for turning left or right, depending on the race.direction.
-*/
-void turn() {
+ */
+void turn()
+{
   // Transfer a lowered speed to the motor
   motor.write(70);
 
   // Set the steering angle to the maximum of the corresponding race.direction
-  if (race.direction == Direction::ANTICLOCKWISE) {
+  if (race.direction == Direction::ANTICLOCKWISE)
+  {
     current.steering_angle = Thresholds::MAX_LEFT;
-  } else if (race.direction == Direction::CLOCKWISE) {
+  }
+  else if (race.direction == Direction::CLOCKWISE)
+  {
     current.steering_angle = Thresholds::MAX_RIGHT;
   }
 }
-
 
 ///----------------------------------------
 /// @subsection CONTROL LOOPS
@@ -367,8 +407,9 @@ void turn() {
 
 /**
  * @brief Robot drives in the middle of the straight section.
-*/
-void centreSteering() {
+ */
+void centreSteering()
+{
   // Transfer the default speed to the motor
   motor.write(100);
 
@@ -380,15 +421,16 @@ void centreSteering() {
 
 /**
  * @brief Tries to keep the angular velocity around the z-axis at 0.
-*/
-void gyroSteering() {
+ */
+void gyroSteering()
+{
   // Transfer the default speed to the motor
   motor.write(100);
 
   // Calculate and store the output of the control loop
   controller.setDirection(ControllerDirection::REVERSE);
-  controller.setSetpoint(0);
-  current.steering_angle = controller.getOutput(current.angular_velocity);
+  controller.setSetpoint(race.setpoint_angle);
+  current.steering_angle = controller.getOutput(current.yaw_angle);
 }
 
 ///----------------------------------------
@@ -396,49 +438,144 @@ void gyroSteering() {
 ///----------------------------------------
 
 /**
+ * @brief Updates all of the measurement values.
+ *
+ * Sonars, gyroscope and voltage pin are refreshed.
+ */
+void updateSensors()
+{
+  updateSonars();
+  imu.update();
+  current.yaw_angle = imu.getAngleZ() - initial.yaw_angle;
+  current.angular_velocity = imu.getGyroZ();
+  current.voltage = map(analogRead(Pins::VOLTAGE_MEASUREMENT_PIN), 0, 1023, 0, 100);
+}
+
+/**
+ * @brief Updates all of the actuator parameters.
+ *
+ * Refreshes the steering angle value if it changed.
+ * Moreover, certain race-specific parameters are refreshed.
+ */
+void updateActuators()
+{
+  // Steering angle has changed
+  if (current.steering_angle != last.steering_angle)
+  {
+    // Increment the amount of completed sections if robot just turned
+    if (last.steering_angle == Thresholds::MAX_LEFT && current.steering_angle != Thresholds::MAX_LEFT)
+    {
+      race.sections++;
+      race.setpoint_angle += 90;
+      race.just_turned = true;
+    }
+    else if (last.steering_angle == Thresholds::MAX_RIGHT && current.steering_angle != Thresholds::MAX_RIGHT)
+    {
+      race.sections++;
+      race.setpoint_angle -= 90;
+      race.just_turned = true;
+    }
+    else
+    {
+      race.just_turned = false;
+    }
+
+    // Transfer angle to the servo motor
+    last.steering_angle = current.steering_angle;
+    servo.write(current.steering_angle);
+  }
+}
+
+/**
+ * @brief Filters out peaks that occur consecutively over a specified threshold.
+ *
+ * @param input The current input value to check.
+ * @param threshold The value above which a peak is considered.
+ * @param consecutive_matches The number of consecutive inputs needed to consider as a peak.
+ * @return true if a peak is detected, false otherwise.
+ */
+bool peak(uint16_t input, uint16_t threshold, uint8_t consecutive_matches)
+{
+  static uint8_t matches;
+
+  if (input >= threshold)
+  {
+    if (matches < consecutive_matches)
+    {
+      matches++;
+    }
+    if (matches >= consecutive_matches)
+    {
+      return true;
+    }
+  }
+  else
+  {
+    matches = 0;
+    return false;
+  }
+}
+
+/**
  * @brief Measures the distance to the front, left and right.
- * Measurements are performed individually every 10 ms.
-*/
-void sonarsUpdate() {
+ *
+ * Measurement for each is performed individually every 10 ms.
+ */
+void updateSonars()
+{
+  uint16_t frequency = 33;
   static unsigned long last_millis;
   static uint8_t state;
 
-  switch (state) {
-    case 0:
-      {
-        current.distance_left = sonarLeft.readDistance();
-      }
-      break;
-    case 1:
-      {
-        current.distance_front = sonarFront.readDistance();
-      }
-      break;
-    case 2:
-      {
-        current.distance_right = sonarRight.readDistance();
-      }
-      break;
-    default:
-      {
-        state = 0;
-      }
-      break;
+  switch (state)
+  {
+  case LEFT:
+  {
+    current.distance_left = sonar[LEFT].ping_cm();
+    if (millis() - last_millis > 1000 / (3 * frequency))
+    {
+      last_millis = millis();
+      state++;
+    }
   }
-
-  if (millis() - last_millis > 10) {
-    last_millis = millis();
-    state++;
+  break;
+  case FRONT:
+  {
+    current.distance_front = sonar[FRONT].ping_cm();
+    if (millis() - last_millis > 1000 / (3 * frequency))
+    {
+      last_millis = millis();
+      state++;
+    }
+  }
+  break;
+  case RIGHT:
+  {
+    current.distance_right = sonar[RIGHT].ping_cm();
+    if (millis() - last_millis > 1000 / (3 * frequency))
+    {
+      last_millis = millis();
+      state++;
+    }
+  }
+  break;
+  default:
+  {
+    state = LEFT;
+  }
+  break;
   }
 }
 
 /**
  * @brief Function to print the sensor readings on the LCD display.
  */
-void showData() {
+void showData()
+{
   static unsigned long last_millis;
 
-  if (millis() - last_millis > 200) {
+  if (millis() - last_millis > 200)
+  {
     last_millis = millis();
 
     // Print the display preset

@@ -28,7 +28,8 @@ typedef uint8_t pin_size_t;
 #define LOCATION_B 2
 #define DEBOUNCE_DELAY 50
 
-class Button {
+class Button
+{
 public:
   Button(pin_size_t pin);
   ~Button();

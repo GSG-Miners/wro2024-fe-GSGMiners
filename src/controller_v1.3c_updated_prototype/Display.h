@@ -17,7 +17,8 @@
 
 LiquidCrystal_I2C lcd(0x27, COLUMNS, ROWS);
 
-struct Display {
+struct Display
+{
   /**
    * @brief Formats a number into a string with a fixed number of digits and optional sign.
    * @param num The number to format.
@@ -25,7 +26,8 @@ struct Display {
    * @param show_sign Flag to determine if the sign should be displayed.
    * @return A formatted string representing the number.
    */
-  String format(int16_t num, uint8_t max_digits, bool show_sign) {
+  String format(int16_t num, uint8_t max_digits, bool show_sign)
+  {
     // Get the absolute value of the maximum and minimum number that
     // can be displayed according to max_digits
     uint16_t limit = pow(10, max_digits) - 1;
@@ -36,10 +38,12 @@ struct Display {
                                               : " ";
 
     // Add leading spaces until the string length reaches max_digits
-    if (show_sign) {
+    if (show_sign)
+    {
       str = sign + str;
     }
-    while (str.length() < max_digits + (show_sign ? 1 : 0)) {
+    while (str.length() < max_digits + (show_sign ? 1 : 0))
+    {
       str = " " + str;
     }
 
@@ -55,8 +59,10 @@ struct Display {
    * @param max_digits The maximum number of digits to display.
    * @param show_sign Flag to determine if the sign should be displayed.
    */
-  void update(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign) {
-    if (last_num != current_num) {
+  void update(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign)
+  {
+    if (last_num != current_num)
+    {
       last_num = current_num;
       lcd.setCursor(cursor_x, cursor_y);
       lcd.print(format(current_num, max_digits, show_sign));
@@ -66,9 +72,12 @@ struct Display {
   /**
    * @brief Clears the display.
    */
-  void clear() {
-    for (uint8_t i = 0; i < ROWS; i++) {
-      for (uint8_t j = 0; j < COLUMNS; j++) {
+  void clear()
+  {
+    for (uint8_t i = 0; i < ROWS; i++)
+    {
+      for (uint8_t j = 0; j < COLUMNS; j++)
+      {
         lcd.setCursor(j, i);
         lcd.print(" ");
       }
@@ -78,7 +87,8 @@ struct Display {
   /**
    * @brief Displays a bootup message with a progress bar.
    */
-  void bootup() {
+  void bootup()
+  {
     lcd.setCursor(2, 0);
     lcd.print("INITIALIZING");
 
@@ -86,7 +96,8 @@ struct Display {
     lcd.setCursor(2, 1);
     lcd.print("[----------]");
     delay(100);
-    for (uint8_t i = 3; i < 13; i++) {
+    for (uint8_t i = 3; i < 13; i++)
+    {
       lcd.setCursor(i, 1);
       lcd.print("=");
       delay(100);
@@ -96,10 +107,12 @@ struct Display {
   /**
    * @brief Displays preset labels on the screen.
    */
-  void preset() {
+  void preset()
+  {
     static bool preset_printed;
 
-    if (!preset_printed) {
+    if (!preset_printed)
+    {
       lcd.setCursor(0, 0);
       lcd.print("L");
       lcd.setCursor(4, 0);
@@ -121,7 +134,8 @@ struct Display {
   /**
    * @brief Displays a shutdown message and initiates a countdown for power saving mode.
    */
-  void shutdown() {
+  void shutdown()
+  {
     clear();
     lcd.setCursor(6, 0);
     lcd.print("RACE");
@@ -135,7 +149,8 @@ struct Display {
     lcd.print("POWER SAVING");
     lcd.setCursor(3, 1);
     lcd.print("MODE IN 3.");
-    for (uint8_t i = 2; i > 0; i--) {
+    for (uint8_t i = 2; i > 0; i--)
+    {
       delay(500);
       lcd.setCursor(11, 1);
       lcd.print(i);

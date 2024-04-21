@@ -10,7 +10,7 @@
  * @param pin Pin connected to the button.
  */
 Button::Button(pin_size_t pin)
-  : pin(pin) {}
+    : pin(pin) {}
 
 /**
  * @brief Destructor for Button class.
@@ -22,7 +22,8 @@ Button::~Button() {}
  *
  * Sets the debounce delay and pin mode for the button.
  */
-void Button::begin() {
+void Button::begin()
+{
   this->debounce_delay = DEBOUNCE_DELAY;
   pinMode(this->pin, INPUT_PULLUP);
   this->enabled = true;
@@ -31,7 +32,8 @@ void Button::begin() {
 /**
  * @brief Disables the button.
  */
-void Button::end() {
+void Button::end()
+{
   this->enabled = false;
 }
 
@@ -39,7 +41,8 @@ void Button::end() {
  * @brief Sets the debounce delay for the button.
  * @param debounce_delay The debounce delay in milliseconds.
  */
-void Button::setDebounceDelay(uint8_t debounce_delay) {
+void Button::setDebounceDelay(uint8_t debounce_delay)
+{
   if (!this->enabled)
     return;
 
@@ -52,11 +55,13 @@ void Button::setDebounceDelay(uint8_t debounce_delay) {
  *
  * Implements debouncing logic to ensure stable button state reading.
  */
-bool Button::readState() {
+bool Button::readState()
+{
   if (!this->enabled)
     return 0;
 
-  if (this->updating_location != LOCATION_B) {
+  if (this->updating_location != LOCATION_B)
+  {
     this->updating_location = LOCATION_A;
   }
 
@@ -68,21 +73,26 @@ bool Button::readState() {
   current_state = digitalRead(this->pin);
 
   // State changed due to noise or pressing
-  if (current_state != last_flickerable_state) {
+  if (current_state != last_flickerable_state)
+  {
     last_debounce_time = millis();
     last_flickerable_state = current_state;
   }
 
   // Steady state is updated, depending on the debounce delay
-  if (millis() - last_debounce_time > this->debounce_delay) {
+  if (millis() - last_debounce_time > this->debounce_delay)
+  {
     last_steady_state = current_state;
   }
 
   // Increment the count, if only FALLING is counted
-  if (last_steady_state == HIGH && current_state == LOW) {
+  if (last_steady_state == HIGH && current_state == LOW)
+  {
     this->count++;
     return true;
-  } else {
+  }
+  else
+  {
     return false;
   }
 }
@@ -93,11 +103,13 @@ bool Button::readState() {
  *
  * This function also updates the button state if necessary.
  */
-uint8_t Button::readCount() {
+uint8_t Button::readCount()
+{
   if (!this->enabled)
     return 0;
 
-  if (this->updating_location != LOCATION_A) {
+  if (this->updating_location != LOCATION_A)
+  {
     this->updating_location = LOCATION_B;
     this->readState();
   }
