@@ -1,6 +1,11 @@
 /**
  * @file Display.h
- * @brief Provides a set of commands for controlling a LiquidCrystal_I2C display.
+ * @brief Header file for display control, interfacing with LiquidCrystal_I2C displays.
+ *
+ * This file contains the declaration of a class that provides a simplified and
+ * extended set of commands for controlling LiquidCrystal_I2C displays. It abstracts
+ * the lower-level I2C communication, offering an intuitive API for display operations.
+ *
  * @author Maximilian Kautzsch
  * @copyright Copyright (c) 2024 Maximilian Kautzsch
  * Licensed under MIT License.
@@ -21,10 +26,16 @@ struct Display
 {
   /**
    * @brief Formats a number into a string with a fixed number of digits and optional sign.
+   *
+   * This function takes an integer number and formats it into a string representation
+   * that fits within a specified width, adding an optional sign prefix. It ensures that
+   * the number is constrained within the displayable range and pads the string with spaces
+   * for alignment purposes. This is useful for creating uniform and aligned numerical displays.
+   *
    * @param num The number to format.
-   * @param max_digits The maximum number of digits to display.
-   * @param show_sign Flag to determine if the sign should be displayed.
-   * @return A formatted string representing the number.
+   * @param max_digits The maximum number of digits to display, excluding the sign.
+   * @param show_sign If true, includes a '+' or '-' sign before the number.
+   * @return A string formatted to the specified width with the number and optional sign.
    */
   String format(int16_t num, uint8_t max_digits, bool show_sign)
   {
@@ -52,12 +63,18 @@ struct Display
 
   /**
    * @brief Updates the display with a new number at the specified location.
-   * @param last_num The last number displayed.
-   * @param current_num The current number to display.
-   * @param cursor_x The x-coordinate of the cursor.
-   * @param cursor_y The y-coordinate of the cursor.
-   * @param max_digits The maximum number of digits to display.
-   * @param show_sign Flag to determine if the sign should be displayed.
+   *
+   * Compares the last displayed number with the current number and updates the display
+   * only if there has been a change. This minimizes unnecessary writes to the display,
+   * which can be time-consuming. The function positions the cursor and prints the formatted
+   * number, ensuring that the display shows the most up-to-date value.
+   *
+   * @param last_num The previously displayed number.
+   * @param current_num The new number to display.
+   * @param cursor_x The horizontal position on the display where the number will be shown.
+   * @param cursor_y The vertical position on the display where the number will be shown.
+   * @param max_digits The maximum number of digits the number should occupy.
+   * @param show_sign Whether to show the sign ('+' or '-') of the number.
    */
   void update(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign)
   {
@@ -70,7 +87,11 @@ struct Display
   }
 
   /**
-   * @brief Clears the display.
+   * @brief Clears the entire display.
+   *
+   * Iterates over every position on the display and writes a space character to it,
+   * effectively clearing the screen. This method is typically used before writing new
+   * content to ensure the display is blank.
    */
   void clear()
   {
@@ -85,7 +106,11 @@ struct Display
   }
 
   /**
-   * @brief Displays a bootup message with a progress bar.
+   * @brief Displays a bootup message with a progress bar animation.
+   *
+   * Writes an "INITIALIZING" message on the display and creates a visual progress bar
+   * that fills up over time. This provides a visual indication that the system is starting
+   * up and can be used to enhance the user experience during the bootup sequence.
    */
   void bootup()
   {
@@ -105,14 +130,20 @@ struct Display
   }
 
   /**
-   * @brief Displays preset labels on the screen.
+   * @brief Displays preset labels on the screen for a consistent user interface.
+   *
+   * Prints a set of predefined labels at specific locations on the display. These labels
+   * serve as static elements of the user interface, providing context for dynamic data
+   * that will be displayed. The labels are printed only once to avoid unnecessary updates.
    */
+
   void preset()
   {
     static bool preset_printed;
 
     if (!preset_printed)
     {
+      clear();
       lcd.setCursor(0, 0);
       lcd.print("L");
       lcd.setCursor(4, 0);
@@ -133,6 +164,10 @@ struct Display
 
   /**
    * @brief Displays a shutdown message and initiates a countdown for power saving mode.
+   *
+   * Clears the display and shows a "RACE FINISHED" message followed by a countdown
+   * indicating the transition to power saving mode. This function can be used to signal
+   * the end of an operation and prepare the user for the device's power-down sequence.
    */
   void shutdown()
   {
@@ -159,4 +194,4 @@ struct Display
   }
 };
 
-#endif
+#endif // DISPLAY_H

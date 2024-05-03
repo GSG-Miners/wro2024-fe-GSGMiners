@@ -1,6 +1,12 @@
 /**
  * @file L298N.h
- * @brief Header for L298N class, which controls a DC motor via L298N driver.
+ * @brief Header file for the L298N class, managing DC motor control via the L298N driver.
+ *
+ * This file declares the L298N class, which provides a high-level interface to control
+ * DC motors using the L298N motor driver module. It simplifies the process of setting
+ * motor speed and direction, making it accessible for projects that require motor
+ * actuation.
+ *
  * @author Maximilian Kautzsch
  * @copyright Copyright (c) 2024 Maximilian Kautzsch
  * Licensed under MIT License.
