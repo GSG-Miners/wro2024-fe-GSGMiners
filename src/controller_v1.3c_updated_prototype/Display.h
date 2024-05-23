@@ -1,3 +1,4 @@
+#include <sys/_stdint.h>
 /**
  * @file Display.h
  * @brief Header file for display control, interfacing with LiquidCrystal_I2C displays.
@@ -135,29 +136,72 @@ struct Display
    * Prints a set of predefined labels at specific locations on the display. These labels
    * serve as static elements of the user interface, providing context for dynamic data
    * that will be displayed. The labels are printed only once to avoid unnecessary updates.
+   *
+   * @param layout_id The configuration identifier that determines the label layout.
    */
-
-  void preset()
+  void preset(uint8_t layout_id)
   {
     static bool preset_printed;
 
     if (!preset_printed)
     {
+      // Clear the display to prepare for label printing.
       clear();
-      lcd.setCursor(0, 0);
-      lcd.print("L");
-      lcd.setCursor(4, 0);
-      lcd.print("M");
-      lcd.setCursor(8, 0);
-      lcd.print("R");
-      lcd.setCursor(0, 1);
-      lcd.print("X");
-      lcd.setCursor(5, 1);
-      lcd.print("Y");
-      lcd.setCursor(10, 1);
-      lcd.print("C");
-      lcd.setCursor(13, 1);
-      lcd.print("V");
+
+      // Handle different configuration numbers and their respective label layouts.
+      switch (layout_id)
+      {
+      case 0:
+      {
+        lcd.setCursor(0, 0);
+        lcd.print("L");
+        lcd.setCursor(4, 0);
+        lcd.print("M");
+        lcd.setCursor(8, 0);
+        lcd.print("R");
+        lcd.setCursor(0, 1);
+        lcd.print("X");
+        lcd.setCursor(5, 1);
+        lcd.print("Y");
+        lcd.setCursor(10, 1);
+        lcd.print("C");
+        lcd.setCursor(13, 1);
+        lcd.print("V");
+      }
+      break;
+      case 1:
+      {
+        lcd.setCursor(0, 0);
+        lcd.print("L");
+        lcd.setCursor(5, 0);
+        lcd.print("M");
+        lcd.setCursor(10, 0);
+        lcd.print("R");
+        lcd.setCursor(0, 1);
+        lcd.print("G");
+        lcd.setCursor(10, 1);
+        lcd.print("V");
+      }
+      break;
+      case 2:
+      {
+        lcd.setCursor(0, 0);
+        lcd.print("L");
+        lcd.setCursor(5, 0);
+        lcd.print("M");
+        lcd.setCursor(10, 0);
+        lcd.print("R");
+        lcd.setCursor(0, 1);
+        lcd.print("G");
+        lcd.setCursor(5, 1);
+        lcd.print("X");
+        lcd.setCursor(10, 1);
+        lcd.print("Y");
+      }
+      break;
+      }
+
+      // Mark the preset as printed to prevent future executions.
       preset_printed = true;
     }
   }

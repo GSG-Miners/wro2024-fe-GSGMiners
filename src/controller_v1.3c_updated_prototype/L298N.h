@@ -61,4 +61,4 @@ private:
   uint8_t acceleration;
 };
 
-#endif
+#endif // L298N_H

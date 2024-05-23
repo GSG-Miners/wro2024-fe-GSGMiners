@@ -1,5 +1,11 @@
 /**
  * @file MovingAverage.h
+ * @brief Header file for the MovingAverage template class, implementing a moving average filter.
+ *
+ * The MovingAverage class template computes a moving average of a sequence of values,
+ * which is useful for smoothing out short-term fluctuations and highlighting longer-term
+ * trends or cycles. This class is versatile and can be used with various data types.
+ *
  * @author Maximilian Kautzsch
  * @copyright Copyright (c) 2024 Maximilian Kautzsch
  * Licensed under MIT License.
@@ -343,4 +349,4 @@ U MovingAverage<T, U>::readExponentialAverage(float smoothing_factor)
   return this->exponential_moving_average;
 }
 
-#endif
+#endif // MOVINGAVERAGE_H

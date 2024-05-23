@@ -13,6 +13,8 @@
 #define CAMERA_H
 
 #include <sys/_stdint.h>
+#include "includes/ra/fsp/src/bsp/mcu/all/bsp_arm_exceptions.h"
+#include "api/Common.h"
 
 #if defined(ARDUINO_ARCH_RENESAS)
 #include <Pixy2_Renesas.h>
@@ -20,13 +22,24 @@
 #include <Pixy2.h>
 #endif
 
+/**
+ * @enum Colour
+ * @brief Enumerates the color signatures detected by the Pixy2 camera.
+ *
+ * Provides symbolic names for the different colors that can be detected by the Pixy2 camera.
+ * This enumeration simplifies the process of identifying and working with various color signatures
+ * in the codebase, making it easier to handle color-based logic and decision-making.
+ */
+enum class Colour : const uint8_t
+{
+    NONE,
+    RED,
+    GREEN,
+    MAGENTA
+};
+
 // Create an instance of the Pixy2 camera.
 Pixy2 pixy;
-
-// Define constants for location updates.
-#define LOCATION_A 1
-#define LOCATION_B 2
-#define LOCATION_C 3
 
 // Define signature constants for color detection.
 #define RED_SIG_1 1
@@ -39,8 +52,6 @@ Pixy2 pixy;
 
 struct Camera
 {
-    uint8_t updating_location;
-
     /**
      * @brief Initializes the Pixy2 camera and configures its lighting settings.
      *
@@ -62,34 +73,27 @@ struct Camera
      * color based on predefined signatures. This method is useful for applications that need
      * to sort or identify objects by color.
      *
-     * @return A character representing the detected color ('r' for red, 'g' for green) or
-     * a space character if no color blocks are detected.
+     * @return A value of the Colour enum representing the detected color, or Colour::NONE
+     * if no color blocks are detected.
      */
-    char readColour()
+    Colour readColour()
     {
-        if (updating_location != LOCATION_B && updating_location != LOCATION_C)
-        {
-            updating_location = LOCATION_A;
-            pixy.ccc.getBlocks();
-        }
-
         if (pixy.ccc.numBlocks)
         {
-            for (uint8_t i = 0; i < pixy.ccc.numBlocks; i++)
+            if (pixy.ccc.blocks[0].m_signature == RED_SIG_1 || pixy.ccc.blocks[0].m_signature == RED_SIG_2 || pixy.ccc.blocks[0].m_signature == RED_SIG_3)
             {
-                // Calculate the area for red and green blocks.
-                if (pixy.ccc.blocks[i].m_signature == RED_SIG_1 || pixy.ccc.blocks[i].m_signature == RED_SIG_2 || pixy.ccc.blocks[i].m_signature == RED_SIG_3)
-                {
-                    return 'r';
-                }
-                else if (pixy.ccc.blocks[i].m_signature == GREEN_SIG_1 || pixy.ccc.blocks[i].m_signature == GREEN_SIG_2 || pixy.ccc.blocks[i].m_signature == GREEN_SIG_3)
-                {
-                    return 'g';
-                }
+                return Colour::RED;
+            }
+            else if (pixy.ccc.blocks[0].m_signature == GREEN_SIG_1 || pixy.ccc.blocks[0].m_signature == GREEN_SIG_2 || pixy.ccc.blocks[0].m_signature == GREEN_SIG_3)
+            {
+                return Colour::GREEN;
+            }
+            else if (pixy.ccc.blocks[0].m_signature == MAGENTA_SIG)
+            {
+                return Colour::MAGENTA;
             }
         }
-        else
-            return ' ';
+        return Colour::NONE;
     }
 
     /**
@@ -103,12 +107,6 @@ struct Camera
      */
     uint16_t readX()
     {
-        if (updating_location != LOCATION_A && updating_location != LOCATION_C)
-        {
-            updating_location = LOCATION_B;
-            pixy.ccc.getBlocks();
-        }
-
         if (pixy.ccc.numBlocks)
             return pixy.ccc.blocks[0].m_x;
         else
@@ -126,12 +124,6 @@ struct Camera
      */
     uint8_t readY()
     {
-        if (updating_location != LOCATION_A && updating_location != LOCATION_B)
-        {
-            updating_location = LOCATION_C;
-            pixy.ccc.getBlocks();
-        }
-
         if (pixy.ccc.numBlocks)
             return pixy.ccc.blocks[0].m_y;
         else

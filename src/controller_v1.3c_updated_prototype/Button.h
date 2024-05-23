@@ -47,7 +47,6 @@ public:
   uint8_t readCount();
 
 private:
-  uint8_t counting_mode;
   bool enabled;
   bool last_steady_state;
   bool current_state;
@@ -55,6 +54,7 @@ private:
   uint8_t updating_location;
   uint8_t debounce_delay;
   uint8_t count;
+  uint8_t counting_mode;
 };
 
 #endif // BUTTON_H

@@ -74,7 +74,7 @@ void L298N::write(float speed)
   uint16_t updating_interval = map(this->acceleration, 0, 100, MIN_UPDATING_INTERVAL, MAX_UPDATING_INTERVAL);
   this->setpoint_speed = constrain(speed, -100, 100);
 
-  // Adjust the current speed to the new setpoint speed
+  // Adjust the current speed to the new setSetpoint speed
   if (micros() - last_micros > updating_interval)
   {
     last_micros = micros();
