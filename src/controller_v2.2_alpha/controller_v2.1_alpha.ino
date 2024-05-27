@@ -1,5 +1,5 @@
 /**
- * @file controller_v2.1
+ * @file controller_v2.2_alpha
  * @brief Comprehensive control system for autonomous navigation and race management.
  *
  * This file encapsulates the logic for an autonomous vehicle's navigation system, integrating
@@ -11,11 +11,12 @@
  * to navigate complex courses and track its performance throughout a race.
  *
  * @author Maximilian Kautzsch
- * @date Updated on 4th May 2024
+ * @date Updated on 27th May 2024
  * @copyright Copyright (c) 2024 Maximilian Kautzsch
  * Licensed under MIT License.
  */
 
+#include <math.h>
 #include <Wire.h>
 #include <MPU6050_light.h>
 #include <Servo.h>
@@ -27,9 +28,9 @@
 #include "Controlling.h"
 #include "Camera.h"
 
-///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///==================================================
 /// @section    DEFINTIONS
-///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///==================================================
 
 /// ––––––––––––––––––––––––––––––––––––––––––––––––––
 ///  @subsection Structures
@@ -60,6 +61,8 @@ struct Parameters
 struct Race
 {
   Direction direction;
+  TurnState turn_state;
+  TurnMode turn_mode;
   bool enabled;
   bool turning;
   bool obstacles_included;
@@ -114,12 +117,12 @@ void setup()
   sonarLeft.begin();
   sonarFront.begin();
   sonarRight.begin();
-  if (race.obstacles_included)
-    camera.begin();
+  camera.begin();
 
   // Init actuators
   motor.begin();
   servo.attach(Pins::SERVO_PIN);
+  servo.write(Constants::STRAIGHT);
 
   // Init the lcd display
   lcd.init();
@@ -128,7 +131,6 @@ void setup()
 
   // Init controller
   controller.begin();
-  controller.setStates(85, 90, 110);
   controller.setHysteresis(1);
 
   // Init Race Parameters
@@ -137,9 +139,9 @@ void setup()
   race.direction = Direction::NONE;
 }
 
-///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///==================================================
 /// @section    MAIN PROGRAM
-///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///==================================================
 
 /**
  * @brief Main loop function executed repeatedly during the robot's operation.
@@ -156,12 +158,13 @@ void loop()
   showData();
 
   // The general algorithm of the robot's autonomous control system.
+  // fixServo();
   drive();
 }
 
-///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///==================================================
 /// @section    METHODS
-///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+///==================================================
 
 /// ––––––––––––––––––––––––––––––––––––––––––––––––––
 ///  @subsection Algorithm
@@ -182,45 +185,277 @@ void loop()
  */
 void drive()
 {
-  // ⎧
-  // ⎪
-  // ⎩ LAYER 1
-  if (getLaps() >= 3)
+  // LAYER 1
+  if (getLaps() >= 3 && current.distance_front <= initial.distance_front + Constants::STOPPING_OFFSET)
   {
-    if (!race.parking_enabled && current.distance_front <= initial.distance_front + Constants::STOPPING_OFFSET)
-      stop();
-    else if (race.obstacles_included && race.parking_enabled && detectedParkingLot())
-      park();
+    stop();
   }
   else
   {
-    // ⎪
-    // ⎩ LAYER 2
-    if (collisionRisk())
+    // LAYER 2
+    if (collisionRisk() && current.colour != Colour::RED && current.colour != Colour::GREEN)
+    {
       avoidCollision();
+    }
     else
     {
-      // ⎪
-      // ⎩ LAYER 3
-      int8_t error = race.setpoint_yaw_angle - current.yaw_angle;
-
-      if (race.obstacles_included && pixy.ccc.numBlocks)
-        obstacleSteering();
-      else
-        gyroSteering();
-
-      if (error >= -1 && error <= 1)
-        race.turning = false;
-
-      if (current.distance_front < 80 && detectedGap() && !race.turning && !pixy.ccc.numBlocks)
-        turn();
+      // LAYER 3
+      race.obstacles_included ? handleTurning(TurnMode::NOTE) : handleTurning(TurnMode::DEFAULT);
     }
+  }
+}
+
+/**
+ * @brief Orchestrates the vehicle's turning maneuvers based on the current turn mode.
+ *
+ * This function manages the complex process of turning by evaluating the vehicle's current
+ * yaw angle, the desired setpoint yaw angle, and the presence of any detected gaps in the track.
+ * It adjusts the vehicle's steering angle and speed to navigate turns smoothly and efficiently.
+ * The function operates in three main states:
+ * 1 INITIATE,
+ * 2 TURNING and
+ * 3 COMPLETE,
+ * transitioning between these states as the turn progresses.
+ *
+ * @param turn_mode The mode of turning to be executed, influencing the turning behavior.
+ */
+void handleTurning(TurnMode turn_mode)
+{
+  static bool updated_setpoint_angle;
+  int16_t angle_difference;
+
+  switch (race.turn_state)
+  {
+  case TurnState::INITIATE:
+  {
+    // Preparing to initiate a turn based on detected track conditions and vehicle orientation
+    getDirection();
+
+    angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+
+    // Handle the turning logic based on the selected turn mode
+    switch (turn_mode)
+    {
+    case TurnMode::DEFAULT:
+    {
+      // The default turning mode prioritizes gap detection and front distance
+      if (detectedGap() && current.distance_front <= 100)
+      {
+        if (!updated_setpoint_angle)
+        {
+          if (race.direction == Direction::ANTICLOCKWISE)
+            race.setpoint_yaw_angle += 90;
+          else if (race.direction == Direction::CLOCKWISE)
+            race.setpoint_yaw_angle -= 90;
+          updated_setpoint_angle = true;
+        }
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+
+        race.turn_state = TurnState::TURNING;
+      }
+      else
+      {
+        gyroSteering(angle_difference);
+        motor.write(Constants::DEFAULT_SPEED);
+      }
+    }
+    break;
+    case TurnMode::NOTE:
+    {
+      // The note turning mode considers the absence of visual markers and tighter front distance constraints
+      if (!pixy.ccc.numBlocks && detectedGap() && current.distance_front <= 90)
+      {
+        if (!updated_setpoint_angle)
+        {
+          if (race.direction == Direction::ANTICLOCKWISE)
+            race.setpoint_yaw_angle += 90;
+          else if (race.direction == Direction::CLOCKWISE)
+            race.setpoint_yaw_angle -= 90;
+          updated_setpoint_angle = true;
+        }
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+
+        if (race.direction == Direction::ANTICLOCKWISE)
+        {
+          gyroSteering(angle_difference - 90);
+          motor.write(Constants::REDUCED_SPEED);
+        }
+        else if (race.direction == Direction::CLOCKWISE)
+        {
+          gyroSteering(angle_difference + 90);
+          motor.write(Constants::REDUCED_SPEED);
+        }
+
+        if (current.distance_front <= 15)
+        {
+          race.turn_state = TurnState::TURNING;
+        }
+      }
+      else if (race.obstacles_included && (current.colour == Colour::RED || current.colour == Colour::GREEN))
+      {
+        obstacleSteering(current.x_pos, current.y_pos, current.colour);
+        motor.write(Constants::REDUCED_SPEED);
+      }
+      else
+      {
+        gyroSteering(angle_difference);
+        motor.write(Constants::REDUCED_SPEED);
+      }
+    }
+    break;
+    case TurnMode::SWIFT:
+    {
+      // The swift turning mode is designed for quick, sharp turns with reduced front distance checks
+      if (detectedGap() && current.distance_front <= 40)
+      {
+        if (race.direction == Direction::ANTICLOCKWISE)
+        {
+          current.steering_angle = Constants::MAX_LEFT;
+        }
+        else if (race.direction == Direction::CLOCKWISE)
+        {
+          current.steering_angle = Constants::MAX_RIGHT;
+        }
+
+        if (!updated_setpoint_angle)
+        {
+          if (race.direction == Direction::ANTICLOCKWISE)
+            race.setpoint_yaw_angle += 90;
+          else if (race.direction == Direction::CLOCKWISE)
+            race.setpoint_yaw_angle -= 90;
+          updated_setpoint_angle = true;
+        }
+
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+        if (updated_setpoint_angle && abs(angle_difference) <= 60)
+        {
+          race.turn_state = TurnState::TURNING;
+        }
+      }
+      else if (race.obstacles_included && (current.colour == Colour::RED || current.colour == Colour::GREEN))
+      {
+        obstacleSteering(current.x_pos, current.y_pos, current.colour);
+        motor.write(Constants::REDUCED_SPEED);
+      }
+      else if (current.distance_left <= 150 && current.distance_right <= 150)
+      {
+        centreSteering();
+        motor.write(Constants::REDUCED_SPEED);
+      }
+      else
+      {
+        gyroSteering(angle_difference);
+        motor.write(Constants::REDUCED_SPEED);
+      }
+    }
+    break;
+    }
+
+    motor.write(Constants::REDUCED_SPEED);
+    updateSteeringAngle();
+  }
+  break;
+  case TurnState::TURNING:
+  {
+    // Executing the turn based on the updated steering angle and monitoring the yaw angle
+    switch (turn_mode)
+    {
+    case TurnMode::DEFAULT:
+    {
+      if (race.direction == Direction::ANTICLOCKWISE)
+      {
+        current.steering_angle = Constants::MAX_LEFT;
+      }
+      else if (race.direction == Direction::CLOCKWISE)
+      {
+        current.steering_angle = Constants::MAX_RIGHT;
+      }
+
+      motor.write(Constants::DEFAULT_SPEED);
+      updateSteeringAngle();
+
+      angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+      if (angle_difference >= -10 && angle_difference <= 10)
+      {
+        race.turn_state = TurnState::COMPLETE;
+      }
+    }
+    break;
+    case TurnMode::NOTE:
+    {
+      if (race.direction == Direction::ANTICLOCKWISE)
+      {
+        current.steering_angle = Constants::MAX_RIGHT;
+      }
+      else if (race.direction == Direction::CLOCKWISE)
+      {
+        current.steering_angle = Constants::MAX_LEFT;
+      }
+
+      motor.write(-Constants::REDUCED_SPEED - 20);
+      updateSteeringAngle();
+
+      angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+      if (abs(angle_difference) <= 40)
+      {
+        race.turn_state = TurnState::COMPLETE;
+      }
+    }
+    break;
+    case TurnMode::SWIFT:
+    {
+      angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+
+      if (angle_difference >= -2 && angle_difference <= 2)
+        current.steering_angle = 90;
+      if (angle_difference < -2 && angle_difference >= -10)
+        current.steering_angle = 80;
+      if (angle_difference > 2 && angle_difference <= 10)
+        current.steering_angle = 105;
+      if (angle_difference < -10)
+        current.steering_angle = 50;
+      if (angle_difference > 10)
+        current.steering_angle = 120;
+
+      motor.write(-Constants::REDUCED_SPEED);
+      updateSteeringAngle();
+
+      if (abs(angle_difference) <= 10)
+      {
+        race.turn_state = TurnState::COMPLETE;
+      }
+    }
+    break;
+    }
+  }
+  break;
+  case TurnState::COMPLETE:
+  {
+    // Finalizing the turn, resetting the steering angle, and preparing for the next turn
+    current.steering_angle = 90;
+    updateSteeringAngle();
+    updated_setpoint_angle = false;
+    race.turn_state = TurnState::INITIATE;
+  }
+  break;
   }
 }
 
 /// ––––––––––––––––––––––––––––––––––––––––––––––––––
 ///  @subsection Initialization and Shutdown
 /// ––––––––––––––––––––––––––––––––––––––––––––––––––
+
+void begin()
+{
+  static bool flag;
+
+  if (!flag)
+  {
+    current.steering_angle = Constants::STRAIGHT;
+    motor.setAcceleration(100);
+    flag = true;
+  }
+}
 
 /**
  * @brief Captures initial measurement values to establish a baseline.
@@ -269,7 +504,8 @@ void initSonars()
  */
 void stop()
 {
-  setAngle(Constants::STRAIGHT);
+  current.steering_angle = Constants::STRAIGHT;
+  updateSteeringAngle();
   motor.end();
   servo.detach();
   race.enabled = false;
@@ -300,7 +536,7 @@ void park()
     case 0: // Approach parking spot.
     {
       motor.write(50);
-      gyroSteering();
+      gyroSteering(90);
 
       // Check if the vehicle is close enough to the parking spot.
       if (current.distance_front < 80)
@@ -313,7 +549,7 @@ void park()
     break;
     case 1: // Prepare to reverse.
     {
-      gyroSteering();
+      gyroSteering(90);
 
       // Wait for 3 seconds before reversing.
       if (millis() - last_millis_B > 3000)
@@ -326,7 +562,7 @@ void park()
     case 2: // Begin reversing into the spot.
     {
       motor.write(-50);
-      gyroSteering();
+      gyroSteering(90);
 
       // Check if the steering angle is correct for parking.
       if (current.steering_angle > 0)
@@ -339,7 +575,7 @@ void park()
     case 3: // Continue reversing with a set duration.
     {
       motor.write(-50);
-      gyroSteering();
+      gyroSteering(90);
 
       // Check if the vehicle has reversed for the set parking duration.
       if (millis() - last_millis_B > PARKING_TIME)
@@ -352,7 +588,7 @@ void park()
     case 4: // Final adjustments.
     {
       motor.write(-50);
-      gyroSteering();
+      gyroSteering(90);
 
       // Check if the vehicle is properly aligned within the spot.
       if (current.steering_angle > 0)
@@ -396,7 +632,7 @@ void updateSensors()
   }
 
   // Update the retrieved data of the pixy camera.
-  if (millis() - last_millis_B > (1000 / CAMERA_FREQUENCY))
+  if (race.obstacles_included && millis() - last_millis_B > (1000 / CAMERA_FREQUENCY))
   {
     last_millis_B = millis();
 
@@ -426,15 +662,13 @@ void updateSensors()
  * also tracks the robot's progress through the race course, incrementing section counts post-turn
  * and refreshing race-specific parameters as needed.
  */
-void setAngle(uint8_t steering_angle)
+void updateSteeringAngle()
 {
-  static uint8_t last_angle;
-
   // Transfer the steering angle to the servo, if changed.
-  if (steering_angle != last_angle)
+  if (current.steering_angle != last.steering_angle)
   {
-    last_angle = steering_angle;
-    servo.write(steering_angle);
+    last.steering_angle = current.steering_angle;
+    servo.write(current.steering_angle);
   }
 }
 
@@ -452,20 +686,76 @@ void setAngle(uint8_t steering_angle)
 void wallSteering()
 {
   // Transfer the default speed to the motor
-  motor.write(100);
+  motor.write(Constants::DEFAULT_SPEED);
 
   // Calculate and store the output of the control loop
+  controller.setStates(80, 90, 110);
   if (race.direction == Direction::ANTICLOCKWISE)
   {
-    controller.setDirection(ControllerDirection::DIRECT);
-    controller.setSetpoint(40);
-    current.steering_angle = controller.getOutput(current.distance_left);
+    leftWallSteering(30);
   }
   else if (race.direction == Direction::CLOCKWISE)
   {
-    controller.setDirection(ControllerDirection::REVERSE);
-    controller.setSetpoint(40);
-    current.steering_angle = controller.getOutput(current.distance_right);
+    rightWallSteering(30);
+  }
+}
+
+/**
+ * @brief Adjusts the vehicle's steering to maintain a set distance from the left wall.
+ *
+ * This function is called when the vehicle is navigating a track in an anticlockwise direction.
+ * It ensures that the vehicle maintains a consistent lateral distance from the left wall by
+ * adjusting the steering angle. This is crucial for smooth cornering and avoiding collisions
+ * with the wall during left turns.
+ *
+ * @param setpoint_distance The target distance from the left wall (in centimeters).
+ */
+void leftWallSteering(uint16_t setpoint_distance)
+{
+  // Check if the vehicle is within the acceptable range of the setpoint distance
+  if (current.distance_left >= setpoint_distance - 1 && current.distance_left <= setpoint_distance + 1)
+  {
+    // If within range, keep the steering straight
+    current.steering_angle = Constants::STRAIGHT;
+  }
+  else if (current.distance_left > setpoint_distance + 1)
+  {
+    // If too far from the wall, steer right
+    current.steering_angle = 105;
+  }
+  else if (current.distance_left < setpoint_distance - 1)
+  {
+    // If too close to the wall, steer left
+    current.steering_angle = 80;
+  }
+}
+
+/**
+ * @brief Adjusts the vehicle's steering to maintain a set distance from the right wall.
+ *
+ * This function is invoked when the vehicle is navigating the track in a clockwise direction.
+ * It corrects the steering angle to keep a steady distance from the right wall, facilitating
+ * effective right turns and preventing the vehicle from scraping against the wall.
+ *
+ * @param setpoint_distance The desired distance to maintain from the right wall (in centimeters).
+ */
+uint16_t rightWallSteering(uint16_t setpoint_distance)
+{
+  // Evaluate if the vehicle's current distance from the right wall is within the setpoint range
+  if (current.distance_right >= setpoint_distance - 1 && current.distance_right <= setpoint_distance + 1)
+  {
+    // Maintain a straight steering angle if within the target range
+    current.steering_angle = Constants::STRAIGHT;
+  }
+  else if (current.distance_right > setpoint_distance + 1)
+  {
+    // Steer left if the vehicle is too far from the right wall
+    current.steering_angle = 80;
+  }
+  else if (current.distance_right < setpoint_distance - 1)
+  {
+    // Steer right if the vehicle is too close to the right wall
+    current.steering_angle = 105;
   }
 }
 
@@ -478,13 +768,18 @@ void wallSteering()
  */
 void centreSteering()
 {
-  // Transfer the default speed to the motor
-  motor.write(100);
-
   // Calculate and store the output of the control loop
-  controller.setDirection(ControllerDirection::DIRECT);
-  controller.setSetpoint(current.distance_right);
-  current.steering_angle = controller.getOutput(current.distance_left);
+  /*
+  if (current.distance_right >= current.distance_left - 1 && current.distance_right <= current.distance_left + 1) {
+    current.steering_angle = Constants::STRAIGHT;
+  } else if (current.distance_right < current.distance_left - 1) {
+    current.steering_angle = 80;
+  } else if (current.distance_right > current.distance_left + 1) {
+    current.steering_angle = 105;
+  }
+  */
+
+  current.steering_angle = constrain(0.10 * (current.distance_right - current.distance_left) + 90, Constants::MAX_LEFT, Constants::MAX_RIGHT);
 }
 
 /**
@@ -494,42 +789,19 @@ void centreSteering()
  * movement. This method is crucial for ensuring the robot's orientation remains consistent,
  * particularly during maneuvers that could cause it to deviate from its intended heading.
  */
-void gyroSteering()
+void gyroSteering(int16_t angle_difference)
 {
-  // Transfer the default speed to the motor
-  motor.write(Constants::DEFAULT_SPEED);
-
   // Calculate and store the output of the control loop
-  controller.setDirection(ControllerDirection::REVERSE);
-  controller.setSetpoint(race.setpoint_yaw_angle);
-  setAngle(controller.getOutput(current.yaw_angle));
-}
-
-/**
- * @brief Conducts the turn maneuver aligned with the race direction.
- *
- * Adjusts the robot's speed and steering angle to execute a turn. The function takes into account
- * the current race direction to determine the appropriate steering angle, facilitating a smooth
- * and controlled navigational change.
- */
-void turn()
-{
-  // Transfer a lowered speed to the motor.
-  motor.write(70);
-
-  // Set the steering angle to the maximum of the corresponding direction.
-  if (race.direction == Direction::ANTICLOCKWISE)
-  {
-    setAngle(Constants::MAX_LEFT);
-    race.setpoint_yaw_angle += 90;
-    race.turning = true;
-  }
-  else if (race.direction == Direction::CLOCKWISE)
-  {
-    setAngle(Constants::MAX_RIGHT);
-    race.setpoint_yaw_angle -= 90;
-    race.turning = true;
-  }
+  if (angle_difference >= -2 && angle_difference <= 2)
+    current.steering_angle = 90;
+  if (angle_difference < -2 && angle_difference >= -10)
+    current.steering_angle = 105;
+  if (angle_difference > 2 && angle_difference <= 10)
+    current.steering_angle = 80;
+  if (angle_difference < -10)
+    current.steering_angle = 115;
+  if (angle_difference > 10)
+    current.steering_angle = 70;
 }
 
 /// ––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -547,7 +819,7 @@ void turn()
  */
 bool collisionRisk()
 {
-  if (current.distance_left <= Constants::MIN_DISTANCE || current.distance_right <= Constants::MAX_DISTANCE)
+  if (current.distance_left <= Constants::MIN_DISTANCE || current.distance_right <= Constants::MIN_DISTANCE)
     return true;
   else
     return false;
@@ -564,14 +836,14 @@ void avoidCollision()
 {
   if (current.distance_left <= Constants::MIN_DISTANCE)
   {
-    setAngle(110);
-    motor.write(60);
+    current.steering_angle = 115;
   }
   if (current.distance_right <= Constants::MIN_DISTANCE)
   {
-    setAngle(60);
-    motor.write(60);
+    current.steering_angle = 60;
   }
+
+  updateSteeringAngle();
 }
 
 /**
@@ -587,30 +859,42 @@ void avoidCollision()
  * to the y-position of the obstacle, scaled similarly.
  * This results in a steering angle that guides the robot around the obstacle.
  */
-void obstacleSteering()
+void obstacleSteering(uint16_t x, uint8_t y, Colour colour)
 {
   // Transfer a lowered speed to the motor to allow for precise maneuvering.
-  motor.write(70);
+  motor.write(Constants::REDUCED_SPEED);
 
-  // Calculate and store the output of the controller, depending on the color of the block.
-  // This conditional steering adjustment is based on the visual input from the sensor.
-  switch (current.colour)
+  // Define the proportional gain constant.
+  const float Kp = 0.75; // Adjust this value based on your system's requirements.
+
+  // Calculate the setpoint based on the colour of the obstacle.
+  float setpoint = 0.0;
+  if (colour == Colour::RED)
   {
-  case Colour::RED:
+    // setpoint = (y - 207) / -3.000;
+    setpoint = 26;
+  }
+  else if (colour == Colour::GREEN)
   {
-    controller.setDirection(ControllerDirection::REVERSE);
-    controller.setSetpoint(-1 * ((current.y_pos - pixy.frameHeight) * pixy.frameHeight) / (2 * pixy.frameWidth));
-    current.steering_angle = controller.getOutput(current.x_pos);
+    // setpoint = (y + 207) / 1.000;
+    setpoint = 288;
   }
-  break;
-  case Colour::GREEN:
+  else
   {
-    controller.setDirection(ControllerDirection::REVERSE);
-    controller.setSetpoint(((current.y_pos + pixy.frameHeight) * pixy.frameHeight) / (2 * pixy.frameWidth));
-    current.steering_angle = controller.getOutput(current.x_pos);
+    // For other colours, maintain a neutral steering angle.
+    current.steering_angle = 90;
+    return;
   }
-  break;
-  }
+
+  // Calculate the error between the current position and the setpoint.
+  float error = x - setpoint;
+
+  // Compute the control output using the P-Controller.
+  float control_output = Kp * error;
+
+  // Apply the control output to adjust the steering angle.
+  // Ensure the steering angle remains within the valid range.
+  current.steering_angle = constrain(90 + control_output, Constants::MAX_LEFT, Constants::MAX_RIGHT);
 }
 
 /// ––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -642,7 +926,7 @@ uint8_t getSections()
  */
 uint8_t getLaps()
 {
-  race.laps = abs(current.yaw_angle) / 350;
+  race.laps = abs(current.yaw_angle) / 348;
   return race.laps;
 }
 
@@ -662,7 +946,9 @@ bool detectedGap()
   case Direction::ANTICLOCKWISE:
   {
     if (current.distance_left >= Constants::MAX_DISTANCE)
+    {
       return true;
+    }
     else
       return false;
   }
@@ -670,7 +956,9 @@ bool detectedGap()
   case Direction::CLOCKWISE:
   {
     if (current.distance_right >= Constants::MAX_DISTANCE)
+    {
       return true;
+    }
     else
       return false;
   }
@@ -690,20 +978,20 @@ bool getDirection()
   static bool direction_determined;
 
   // Make sure that the direction is only determined once.
-  if (direction_determined)
-    return false;
-
-  if (current.distance_right >= Constants::MAX_DISTANCE)
+  if (!direction_determined)
   {
-    race.direction = Direction::CLOCKWISE;
-    direction_determined = true;
-    return true;
-  }
-  else if (current.distance_left >= Constants::MAX_DISTANCE)
-  {
-    race.direction = Direction::ANTICLOCKWISE;
-    direction_determined = true;
-    return true;
+    if (current.distance_left >= 180 && current.distance_left != 400 && current.distance_left > current.distance_right)
+    {
+      race.direction = Direction::ANTICLOCKWISE;
+      direction_determined = true;
+      return true;
+    }
+    else if (current.distance_right >= 180 && current.distance_right != 400 && current.distance_right > current.distance_left)
+    {
+      race.direction = Direction::CLOCKWISE;
+      direction_determined = true;
+      return true;
+    }
   }
   else
   {
@@ -774,44 +1062,51 @@ bool peak(uint16_t input, uint16_t threshold, uint8_t consecutive_matches)
  */
 void cycleSonars()
 {
-  const uint8_t FREQUENCY = 50;
+  const uint8_t FREQUENCY = 20;
   static uint8_t state;
   static unsigned long last_millis;
 
-  if (millis() - (1000 / FREQUENCY) > last_millis)
+  switch (state)
   {
-    last_millis = millis();
-
-    switch (state)
+  case 0:
+  {
+    if (!sonarLeft.isUpdating())
     {
-    case 0:
-    {
-      if (!sonarLeft.isUpdating())
+      sonarFront.startMeasurement();
+      if (millis() - last_millis > (1000) / FREQUENCY)
       {
-        sonarFront.startMeasurement();
+        last_millis = millis();
         state++;
       }
     }
-    break;
-    case 1:
+  }
+  break;
+  case 1:
+  {
+    if (!sonarFront.isUpdating())
     {
-      if (!sonarFront.isUpdating())
+      sonarRight.startMeasurement();
+      if (millis() - last_millis > (1000) / FREQUENCY)
       {
-        sonarRight.startMeasurement();
+        last_millis = millis();
         state++;
       }
     }
-    break;
-    case 2:
+  }
+  break;
+  case 2:
+  {
+    if (!sonarRight.isUpdating())
     {
-      if (!sonarRight.isUpdating())
+      sonarLeft.startMeasurement();
+      if (millis() - last_millis > (1000) / FREQUENCY)
       {
-        sonarLeft.startMeasurement();
+        last_millis = millis();
         state = 0;
       }
     }
-    break;
-    }
+  }
+  break;
   }
 }
 
@@ -859,7 +1154,7 @@ void showData()
       display.update(last.distance_left, current.distance_left, 1, 0, 3, false);
       display.update(last.distance_front, current.distance_front, 6, 0, 3, false);
       display.update(last.distance_right, current.distance_right, 11, 0, 3, false);
-      display.update(last.yaw_angle, current.yaw_angle, 1, 1, 4, true);
+      display.update(0, (race.setpoint_yaw_angle - current.yaw_angle), 1, 1, 4, true);
       display.update(last.voltage, current.voltage, 11, 1, 2, false);
     }
     break;

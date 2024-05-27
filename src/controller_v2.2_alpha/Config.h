@@ -1,3 +1,4 @@
+#include <sys/_stdint.h>
 /**
  * @file Config.h
  * @brief Header file containing configuration enums for directional control and pin assignments.
@@ -52,7 +53,7 @@ enum Constants : const uint8_t
 {
     DEFAULT_SPEED = 100,
     REDUCED_SPEED = 60,
-    MAX_LEFT = 47,
+    MAX_LEFT = 46,
     MAX_RIGHT = 124,
     STRAIGHT = 90,
     MIN_DISTANCE = 20,
@@ -71,7 +72,7 @@ enum Constants : const uint8_t
  */
 enum Mode : const bool
 {
-    OBSTACLES_INCLUDED = false,
+    OBSTACLES_INCLUDED = true,
     PARKING_ENABLED = false
 };
 
@@ -92,6 +93,36 @@ enum class Direction : const uint8_t
     NONE,
     CLOCKWISE,
     ANTICLOCKWISE
+};
+
+/**
+ * @enum TurnState
+ * @brief Enumerates the distinct states of a vehicle's turning process.
+ *
+ * Defines the progression of states a vehicle goes through when executing a turn.
+ * This enumeration aids in the clear transition between different phases of a turn,
+ * ensuring that the vehicle's turning logic is easy to follow and maintain.
+ */
+enum class TurnState : const uint8_t
+{
+    INITIATE,
+    TURNING,
+    COMPLETE
+};
+
+/**
+ * @enum TurnMode
+ * @brief Enumerates the different modes of turning behavior for a vehicle.
+ *
+ * Defines the various strategies a vehicle can employ when navigating turns.
+ * This enumeration allows for the flexible adaptation of turning maneuvers to
+ * match the conditions of the track and the desired responsiveness of the vehicle.
+ */
+enum class TurnMode : const uint8_t
+{
+    DEFAULT,
+    NOTE,
+    SWIFT
 };
 
 #endif // CONFIG_H

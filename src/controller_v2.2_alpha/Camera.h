@@ -35,7 +35,8 @@ enum class Colour : const uint8_t
     NONE,
     RED,
     GREEN,
-    MAGENTA
+    MAGENTA,
+    WALL
 };
 
 // Create an instance of the Pixy2 camera.
@@ -43,11 +44,8 @@ Pixy2 pixy;
 
 // Define signature constants for color detection.
 #define RED_SIG_1 1
-#define RED_SIG_2 3
-#define RED_SIG_3 5
 #define GREEN_SIG_1 2
-#define GREEN_SIG_2 4
-#define GREEN_SIG_3 6
+#define WALL_SIG 3
 #define MAGENTA_SIG 7
 
 struct Camera
@@ -62,8 +60,6 @@ struct Camera
     void begin()
     {
         pixy.init();
-        pixy.setLamp(0, 1);     // upper and lower LEDs of the lamp
-        pixy.setLED(0, 255, 0); // set RGB LED to green (R: 0, G: 255, B: 0)
     }
 
     /**
@@ -80,20 +76,23 @@ struct Camera
     {
         if (pixy.ccc.numBlocks)
         {
-            if (pixy.ccc.blocks[0].m_signature == RED_SIG_1 || pixy.ccc.blocks[0].m_signature == RED_SIG_2 || pixy.ccc.blocks[0].m_signature == RED_SIG_3)
+            if (pixy.ccc.blocks[1].m_signature == RED_SIG_1 || pixy.ccc.blocks[0].m_signature == RED_SIG_1)
             {
                 return Colour::RED;
             }
-            else if (pixy.ccc.blocks[0].m_signature == GREEN_SIG_1 || pixy.ccc.blocks[0].m_signature == GREEN_SIG_2 || pixy.ccc.blocks[0].m_signature == GREEN_SIG_3)
+            else if (pixy.ccc.blocks[1].m_signature == GREEN_SIG_1 || pixy.ccc.blocks[0].m_signature == GREEN_SIG_1)
             {
                 return Colour::GREEN;
             }
-            else if (pixy.ccc.blocks[0].m_signature == MAGENTA_SIG)
+            else if (pixy.ccc.blocks[0].m_signature == MAGENTA_SIG || pixy.ccc.blocks[1].m_signature == MAGENTA_SIG)
             {
                 return Colour::MAGENTA;
             }
         }
-        return Colour::NONE;
+        else
+        {
+            return Colour::NONE;
+        }
     }
 
     /**
@@ -107,8 +106,10 @@ struct Camera
      */
     uint16_t readX()
     {
-        if (pixy.ccc.numBlocks)
+        if (pixy.ccc.numBlocks && pixy.ccc.blocks[0].m_signature != WALL_SIG)
             return pixy.ccc.blocks[0].m_x;
+        else if (pixy.ccc.numBlocks && pixy.ccc.blocks[1].m_signature != WALL_SIG)
+            return pixy.ccc.blocks[1].m_x;
         else
             return 0;
     }
@@ -124,8 +125,10 @@ struct Camera
      */
     uint8_t readY()
     {
-        if (pixy.ccc.numBlocks)
+        if (pixy.ccc.numBlocks && pixy.ccc.blocks[0].m_signature != WALL_SIG)
             return pixy.ccc.blocks[0].m_y;
+        else if (pixy.ccc.numBlocks && pixy.ccc.blocks[1].m_signature != WALL_SIG)
+            return pixy.ccc.blocks[1].m_y;
         else
             return 0;
     }

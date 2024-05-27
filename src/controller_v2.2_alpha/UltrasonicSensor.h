@@ -1,3 +1,4 @@
+#include <sys/_stdint.h>
 /**
  * @file UltrasonicSensor.h
  * @brief Header file for the UltrasonicSensor class, enabling distance measurement.
@@ -53,6 +54,7 @@ private:
     pin_size_t echo_pin;
     uint8_t state;
     uint16_t distance;
+    uint16_t last_valid_distance;
     uint16_t max_distance;
 };
 

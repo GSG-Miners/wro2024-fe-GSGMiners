@@ -95,7 +95,7 @@ void UltrasonicSensor::update()
     break;
     case 2: // State 2: Wait for the echo or timeout.
     {
-        if (micros() > last_micros + 3000)
+        if (micros() > last_micros + 29310)
         {
             this->distance = max_distance;
             this->state = 0;
@@ -120,10 +120,6 @@ void UltrasonicSensor::update()
             if (pulse_width < 12500)
             {
                 this->distance = pulse_width / 29.1;
-            }
-            else
-            {
-                this->distance = 400;
             }
             this->state = 0;
             this->is_updating = false;
