@@ -21,7 +21,7 @@
  * @param direction The initial direction of control for the controller.
  */
 Controller::Controller(ControllerDirection direction)
-    : controller_direction(direction), update_delay(10)
+    : controller_direction(direction), update_delay(50)
 {
 }
 
@@ -272,18 +272,18 @@ int16_t PIDController::getOutput(int16_t input)
 
     // Calculate the error, error-sum, and error-differential.
     error_value = this->setpoint - this->input;
-    error_sum += error_value * max(1UL, (millis() - last_millis));
+    error_sum += error_value * (millis() - last_millis);
     if (this->limits_configured)
     {
       error_sum = constrain(error_sum, this->min_output, this->max_output);
     }
-    error_differential = (error_value - last_error_value) / max(1UL, (millis() - last_millis));
+    error_differential = (error_value - last_error_value) / (millis() - last_millis);
 
     // Calculate the output. Constrain, if necessary.
     this->output = this->p_gain * error_value + this->i_gain * error_sum + this->d_gain * error_differential;
     if (this->limits_configured)
     {
-      this->constrained_output = constrain(this->output, this->min_output, this->max_output);
+      this->output = constrain(this->output, this->min_output, this->max_output);
     }
 
     last_error_value = error_value;

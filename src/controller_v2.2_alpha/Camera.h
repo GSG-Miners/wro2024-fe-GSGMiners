@@ -60,6 +60,7 @@ struct Camera
     void begin()
     {
         pixy.init();
+        pixy.setLED(0, 0, 0);
     }
 
     /**

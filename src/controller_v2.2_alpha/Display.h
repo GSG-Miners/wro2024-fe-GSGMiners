@@ -79,7 +79,7 @@ struct Display
    */
   void update(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign)
   {
-    if (last_num != current_num)
+    if (last_num != current_num || current_num == 0)
     {
       last_num = current_num;
       lcd.setCursor(cursor_x, cursor_y);
