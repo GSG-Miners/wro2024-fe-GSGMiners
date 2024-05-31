@@ -49,14 +49,18 @@ enum Pins : const pin_size_t {
  * or adjust the vehicle's course based on sensor readings.
  */
 enum Constants : const uint8_t {
-  DEFAULT_SPEED = 100,
-  REDUCED_SPEED = 60,
+  DEFAULT_SPEED = 60,  // SAFE
+  // DEFAULT_SPEED = 100,  // FAST
+  REDUCED_SPEED = 50,
   MAX_LEFT = 46,
   MAX_RIGHT = 124,
   STRAIGHT = 90,
+  // MIN_DISTANCE = 15, // QUALIFYING RACE
   MIN_DISTANCE = 10,
   MAX_DISTANCE = 120,
-  STOPPING_OFFSET = 10  // 30 for Qualifying Race, 10 for Obstacle Race
+  // STOPPING_OFFSET = 15  // SAFE QUALIFYING RACE
+  // STOPPING_OFFSET = 30  // FAST QUALIFYING RACE
+  STOPPING_OFFSET = 10  // OBSTACLE RACE
 };
 
 /**
@@ -69,7 +73,7 @@ enum Constants : const uint8_t {
  * assistance feature.
  */
 enum Mode : const bool {
-  OBSTACLES_INCLUDED = false,
+  OBSTACLES_INCLUDED = true,
   PARKING_ENABLED = false
 };
 

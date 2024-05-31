@@ -182,8 +182,8 @@ void loop() {
  */
 void drive() {
   // LAYER 1
-  if (getLaps() >= 3 && current.distance_front <= initial.distance_front + Constants::STOPPING_OFFSET) {
-    stop();
+  if (getLaps() >= 3) {
+    handleStop(race.obstacles_included);
   } else {
     // LAYER 2
     if (collisionRisk() && !race.collision_avoidance_blocked) {
@@ -198,6 +198,50 @@ void drive() {
 ///––––––––––––––––––––––––––––––––––––––––––––––––––
 /// @subsection Low-Layer-Logic (Triple-L)
 ///––––––––––––––––––––––––––––––––––––––––––––––––––
+
+void handleStop(bool obstacles_included) {
+  switch (obstacles_included) {
+    case true:
+      {
+        static bool stopping_timer_locked;
+        static unsigned long stopping_timer;
+
+        if (!stopping_timer_locked) {
+          stopping_timer = millis();
+          stopping_timer_locked = true;
+        }
+
+        if (current.distance_front <= initial.distance_front + Constants::STOPPING_OFFSET
+            && stopping_timer_locked && millis() - stopping_timer > 1500) {
+          stop();
+        } else {
+          // LAYER 2
+          if (collisionRisk() && !race.collision_avoidance_blocked) {
+            avoidCollision();
+          } else {
+            // LAYER 3
+            handleTurns(TurnMode::SWIFT);
+          }
+        }
+      }
+      break;
+    case false:
+      {
+        if (current.distance_front <= initial.distance_front + Constants::STOPPING_OFFSET) {
+          stop();
+        } else {
+          // LAYER 2
+          if (collisionRisk() && !race.collision_avoidance_blocked) {
+            avoidCollision();
+          } else {
+            // LAYER 3
+            handleTurns(TurnMode::SHARP);
+          }
+        }
+      }
+      break;
+  }
+}
 
 /**
  * @brief Manages the vehicle's turning behavior based on the specified turn mode.
@@ -250,7 +294,7 @@ void handleSwiftTurns() {
   };
 
   const uint8_t initial_distance_min = 10;
-  const uint8_t initial_distance_max = 70;
+  const uint8_t initial_distance_max = 60;
   const uint8_t correcting_angle_difference = 50;
   const uint16_t reverse_duration = 3000;
   const uint16_t inter_turn_interval = 4000;
@@ -381,7 +425,7 @@ void handleSharpTurns() {
   };
 
   const uint8_t complete_angle_difference = 10;  // Angle difference indicating that the process is finished.
-  const uint8_t initiating_distance = 100;       // Distance at which the turning process is started.
+  const uint8_t initiating_distance = 80;        // Distance at which the turning process is started.
 
   static TurnState turn_state;
   static bool updated_setpoint_angle;
@@ -407,7 +451,7 @@ void handleSharpTurns() {
           turn_state = TurnState::TURNING;  // Transition to TURNING state.
         } else {
           maintainStraightPath(angle_difference);
-          if (race.sections >= 11) motor.write(Constants::DEFAULT_SPEED - 20);
+          if (race.sections >= 11) motor.write(60);
           else motor.write(Constants::DEFAULT_SPEED);
         }
 
@@ -430,7 +474,7 @@ void handleSharpTurns() {
           }
         }
 
-        if (race.sections >= 11) motor.write(Constants::DEFAULT_SPEED - 20);
+        if (race.sections >= 11) motor.write(60);
         else motor.write(Constants::DEFAULT_SPEED);
         updateSteeringAngle();
       }
@@ -630,8 +674,125 @@ void stop() {
   current.steering_angle = Constants::STRAIGHT;
   updateSteeringAngle();
   motor.end();
-  servo.detach();
   race.enabled = false;
+}
+
+void park() {
+  // Enum for handling different turning states.
+  enum class TurnState : const uint8_t {
+    INITIATE,    // Initial state where the turn is prepared based on track conditions.
+    TURNING,     // State where the robot is actively turning.
+    CORRECTING,  // State for fine-tuning the turn angle.
+    COMPLETE     // State indicating the turn has been completed.
+  };
+
+  enum class TurnDirection : const uint8_t {
+    NONE,
+    LEFT,
+    RIGHT
+  };
+
+  const uint8_t correcting_angle_difference = 50;
+  const uint16_t reverse_duration = 3000;
+
+  static TurnState turn_state;
+  static TurnDirection turn_direction;
+  int16_t angle_difference;
+  static bool updated_setpoint_angle;
+
+  switch (turn_state) {
+    case TurnState::INITIATE:
+      {
+        // Preparing to initiate a turn based on detected track conditions and vehicle orientation.
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+        if (current.colour == Colour::MAGENTA && current.y_pos <= 103) {
+          race.collision_avoidance_blocked = false;
+
+          if (current.x_pos < 157) turn_direction = TurnDirection::RIGHT;
+          else if (current.x_pos >= 157) turn_direction = TurnDirection::LEFT;
+
+          if (!updated_setpoint_angle) {
+            if (turn_direction == TurnDirection::LEFT) race.setpoint_yaw_angle += 90;
+            else if (turn_direction == TurnDirection::RIGHT) race.setpoint_yaw_angle -= 90;
+            updated_setpoint_angle = true;
+          }
+          angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+
+          turn_state = TurnState::TURNING;  // Transition to TURNING state.
+        } else {
+          angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+          if (race.obstacles_included && pixy.ccc.numBlocks) {
+            race.collision_avoidance_blocked = false;
+            obstacleSteering(current.x_pos, current.y_pos, current.colour);
+
+            motor.write(Constants::REDUCED_SPEED);
+          } else {
+            race.collision_avoidance_blocked = false;
+            maintainStraightPath(angle_difference);
+
+            motor.write(Constants::REDUCED_SPEED);
+          }
+        }
+
+        updateSteeringAngle();
+      }
+      break;
+    case TurnState::TURNING:
+      {
+        race.collision_avoidance_blocked = true;  // Block collision avoidance during turn.
+
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+        if (abs(angle_difference) <= correcting_angle_difference) {
+          turn_state = TurnState::CORRECTING;  // Transition to CORRECTING state.
+        } else {
+          // Adjust steering angle based on the direction of the turn.
+          if (turn_direction == TurnDirection::LEFT) {
+            current.steering_angle = Constants::MAX_LEFT;
+          } else if (turn_direction == TurnDirection::RIGHT) {
+            current.steering_angle = Constants::MAX_RIGHT;
+          }
+          motor.write(Constants::REDUCED_SPEED);  // Move the motor in reverse at reduced speed.
+        }
+
+        updateSteeringAngle();
+      }
+      break;
+    case TurnState::CORRECTING:
+      {
+        static unsigned long reversing_timer;
+        static bool reversing_timer_locked;
+
+        race.collision_avoidance_blocked = true;  // Unblock collision avoidance.
+
+        if (reversing_timer_locked && millis() - reversing_timer > reverse_duration) {
+          reversing_timer_locked = false;
+          turn_state = TurnState::COMPLETE;  // Transition to COMPLETE state.
+        } else {
+          if (!reversing_timer_locked) {
+            reversing_timer = millis();
+            reversing_timer_locked = true;
+          }
+          angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+          // Adjust steering angle for fine-tuning the turn.
+          if (angle_difference >= -10 && angle_difference <= 10) current.steering_angle = 90;
+          if (angle_difference < -10 && angle_difference >= -20) current.steering_angle = 80;
+          if (angle_difference > 10 && angle_difference <= 20) current.steering_angle = 105;
+          if (angle_difference < -20) current.steering_angle = 75;
+          if (angle_difference > 20) current.steering_angle = 115;
+        }
+
+        motor.write(-Constants::REDUCED_SPEED);  // Move the motor forward at reduced speed.
+        updateSteeringAngle();
+      }
+      break;
+    case TurnState::COMPLETE:
+      {
+        race.sections++;
+        updated_setpoint_angle = false;
+        turn_state = TurnState::INITIATE;  // Reset the state to INITIATE for the next turn.
+      }
+      break;
+  }
 }
 
 /**
@@ -643,77 +804,124 @@ void stop() {
  * on time intervals and sensor feedback to control the vehicle's movements and ensure it
  * safely enters the parking spot.
  */
+/*
 void park() {
+  enum class ParkingState : const uint8_t {
+    INITIATE,
+    REVERSING,
+    TURNING,
+    CORRECTING_BACKWARD,
+    CORRECTING_FORWARD,
+    COMPLETE
+  };
+
+  race.direction = Direction::ANTICLOCKWISE;
+
   const uint8_t FREQUENCY = 10;
   const uint8_t PARKING_TIME = 1500;
+
+  static ParkingState parking_state;
+  static bool reversing_timer_locked;
+  static bool initiating_timer_locked;
   static uint8_t state;
-  static unsigned long last_millis_A, last_millis_B;
+  int16_t angle_difference;
+  static unsigned long reversing_timer;
+  static unsigned long initiating_timer;
 
-  if (millis() - last_millis_A > (1000 / FREQUENCY)) {
-    last_millis_A = millis();
+  angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
 
-    switch (state) {
-      case 0:  // Approach parking spot.
-        {
+  switch (parking_state) {
+    case ParkingState::INITIATE:
+      {
+        if (!initiating_timer_locked) {
+          initiating_timer = millis();
+          initiating_timer_locked = true;
+        }
+
+        if (initiating_timer_locked && millis() - initiating_timer > 3500) {
+          parking_state = ParkingState::REVERSING;
+        } else {
+          trackOuterWall(35);
+          // maintainStraightPath(angle_difference);
+
+          updateSteeringAngle();
+          motor.write(Constants::REDUCED_SPEED);
+        }
+      }
+      break;
+    case ParkingState::REVERSING:
+      {
+        if (!reversing_timer_locked) {
+          reversing_timer = millis();
+          reversing_timer_locked = true;
+        }
+
+        if (reversing_timer_locked && millis() - reversing_timer > 1600) {
+          race.setpoint_yaw_angle += 45;
+          parking_state = ParkingState::TURNING;
+        } else {
+          if (angle_difference >= -2 && angle_difference <= 2) current.steering_angle = 90;
+          if (angle_difference < -2 && angle_difference >= -10) current.steering_angle = 80;
+          if (angle_difference > 2 && angle_difference <= 10) current.steering_angle = 105;
+          if (angle_difference < -10) current.steering_angle = 60;
+          if (angle_difference > 10) current.steering_angle = 115;
+
+          updateSteeringAngle();
+          motor.write(-Constants::REDUCED_SPEED);
+        }
+      }
+      break;
+    case ParkingState::TURNING:
+      {
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+        if (abs(angle_difference) <= 0) {
+          race.setpoint_yaw_angle -= 45;
+          parking_state = ParkingState::CORRECTING_BACKWARD;
+        } else {
+          if (race.direction == Direction::ANTICLOCKWISE) current.steering_angle = Constants::MAX_RIGHT;
+          else if (race.direction == Direction::CLOCKWISE) current.steering_angle = Constants::MAX_LEFT;
+
+          updateSteeringAngle();
+          motor.write(-50);
+        }
+      }
+      break;
+    case ParkingState::CORRECTING_BACKWARD:
+      {
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+        if (abs(angle_difference) <= 35) {
+          parking_state = ParkingState::COMPLETE;
+        } else {
+          if (race.direction == Direction::ANTICLOCKWISE) current.steering_angle = Constants::MAX_LEFT;
+          else if (race.direction == Direction::CLOCKWISE) current.steering_angle = Constants::MAX_RIGHT;
+
+          updateSteeringAngle();
+          motor.write(-50);
+        }
+      }
+      break;
+    case ParkingState::CORRECTING_FORWARD:
+      {
+        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
+        if (abs(angle_difference) <= 5) {
+          parking_state = ParkingState::COMPLETE;
+        } else {
+          if (race.direction == Direction::ANTICLOCKWISE) current.steering_angle = Constants::MAX_RIGHT;
+          else if (race.direction == Direction::CLOCKWISE) current.steering_angle = Constants::MAX_LEFT;
+
+          updateSteeringAngle();
           motor.write(50);
-          maintainStraightPath(90);
-
-          // Check if the vehicle is close enough to the parking spot.
-          if (current.distance_front < 80) {
-            motor.stop();
-            last_millis_B = last_millis_A;
-            state++;
-          }
         }
-        break;
-      case 1:  // Prepare to reverse.
-        {
-          maintainStraightPath(90);
-
-          // Wait for 3 seconds before reversing.
-          if (millis() - last_millis_B > 3000) {
-            race.setpoint_yaw_angle += 45;
-            state++;
-          }
-        }
-        break;
-      case 2:  // Begin reversing into the spot.
-        {
-          motor.write(-50);
-          maintainStraightPath(90);
-
-          // Check if the steering angle is correct for parking.
-          if (current.steering_angle > 0) {
-            last_millis_B = millis();
-            state++;
-          }
-        }
-        break;
-      case 3:  // Continue reversing with a set duration.
-        {
-          motor.write(-50);
-          maintainStraightPath(90);
-
-          // Check if the vehicle has reversed for the set parking duration.
-          if (millis() - last_millis_B > PARKING_TIME) {
-            race.setpoint_yaw_angle -= 45;
-            state++;
-          }
-        }
-        break;
-      case 4:  // Final adjustments.
-        {
-          motor.write(-50);
-          maintainStraightPath(90);
-
-          // Check if the vehicle is properly aligned within the spot.
-          if (current.steering_angle > 0)
-            stop();
-        }
-        break;
-    }
+      }
+      break;
+    case ParkingState::COMPLETE:
+      {
+        stop();
+      }
+      break;
   }
 }
+*/
 
 ///––––––––––––––––––––––––––––––––––––––––––––––––––
 /// @subsection Sensor and Actuator Management
@@ -752,7 +960,7 @@ void updateSensors() {
     pixy.ccc.getBlocks();
     current.x_pos = camera.readX();
     current.y_pos = camera.readY();
-    current.colour = camera.readColour();
+    current.colour = camera.readColour(false);
   }
 
   // Refresh the incoming ultrasonic sensor data by cycling through each sonar.
@@ -1236,4 +1444,12 @@ void showData() {
 void obstacleSteeringDemo() {
   obstacleSteering(current.x_pos, current.y_pos, current.colour);
   updateSteeringAngle();
+}
+
+/**
+ * @brief Demonstrates the parking mechanism.
+ *
+ */
+void parkingDemo() {
+  park();
 }
