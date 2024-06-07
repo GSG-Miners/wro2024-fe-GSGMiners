@@ -35,6 +35,7 @@ enum Pins : const pin_size_t {
   ECHO_PIN_RIGHT = 16,
   VOLTAGE_MEASUREMENT_PIN = 14,
   BUTTON_PIN = 15,
+  RELAY_PIN = 2,
   MOTOR_FORWARD_PIN = 5,
   MOTOR_BACKWARD_PIN = 6,
   SERVO_PIN = 7
@@ -49,18 +50,16 @@ enum Pins : const pin_size_t {
  * or adjust the vehicle's course based on sensor readings.
  */
 enum Constants : const uint8_t {
-  DEFAULT_SPEED = 60,  // SAFE
-  // DEFAULT_SPEED = 100,  // FAST
-  REDUCED_SPEED = 50,
+  DEFAULT_SPEED = 60,  // SAFE 60
+  REDUCED_SPEED = 55,
   MAX_LEFT = 46,
   MAX_RIGHT = 124,
   STRAIGHT = 90,
-  // MIN_DISTANCE = 15, // QUALIFYING RACE
-  MIN_DISTANCE = 10,
-  MAX_DISTANCE = 120,
-  // STOPPING_OFFSET = 15  // SAFE QUALIFYING RACE
-  // STOPPING_OFFSET = 30  // FAST QUALIFYING RACE
-  STOPPING_OFFSET = 10  // OBSTACLE RACE
+  MIN_DISTANCE = 15,
+  // MAX_DISTANCE = 180, // OBSTACLE RACE
+  MAX_DISTANCE = 130,
+  STOPPING_OFFSET = 15  // SAFE QUALIFYING RACE
+  // STOPPING_OFFSET = 10  // OBSTACLE RACE
 };
 
 /**
@@ -78,9 +77,9 @@ enum Mode : const bool {
 };
 
 
-///––––––––––––––––––––––––––––––––––––––––––––––––––
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
 /// @subsection Symbolic Names
-///––––––––––––––––––––––––––––––––––––––––––––––––––
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * @enum Direction
@@ -106,8 +105,13 @@ enum class Direction : const uint8_t {
  */
 enum class TurnMode : const uint8_t {
   SHARP,
-  ADAPTIVE,
   SWIFT
+};
+
+enum class TurnDirection : const uint8_t {
+  NONE,
+  LEFT,
+  RIGHT
 };
 
 #endif  // CONFIG_H

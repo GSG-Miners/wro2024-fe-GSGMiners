@@ -16,7 +16,7 @@
  * @param backward_pin The pin number assigned to control the backward motion of the motor.
  */
 L298N::L298N(pin_size_t forward_pin, pin_size_t backward_pin)
-    : forwardPwm(forward_pin), backwardPwm(backward_pin) {}
+  : forwardPwm(forward_pin), backwardPwm(backward_pin) {}
 
 /**
  * @brief Destructor for the L298N class.
@@ -33,8 +33,7 @@ L298N::~L298N() {}
  * driver for use. The acceleration is set to a default value, and the motor driver is marked
  * as enabled.
  */
-void L298N::begin()
-{
+void L298N::begin() {
   this->acceleration = 100;
   forwardPwm.begin(float(33000.00), 0.00);
   backwardPwm.begin(float(33000.00), 0.00);
@@ -48,8 +47,7 @@ void L298N::begin()
  * driver as disabled. This method should be called when the motor is no longer needed to
  * ensure it does not continue to run.
  */
-void L298N::end()
-{
+void L298N::end() {
   forwardPwm.end();
   backwardPwm.end();
   this->enabled = false;
@@ -65,8 +63,7 @@ void L298N::end()
  * @param speed The target speed for the motor, where -100 is full reverse, 0 is stopped, and
  * 100 is full forward.
  */
-void L298N::write(float speed)
-{
+void L298N::write(float speed) {
   if (!this->enabled)
     return;
 
@@ -75,34 +72,25 @@ void L298N::write(float speed)
   this->setpoint_speed = constrain(speed, -100, 100);
 
   // Adjust the current speed to the new setSetpoint speed
-  if (micros() - last_micros > updating_interval)
-  {
+  if (micros() - last_micros > updating_interval) {
     last_micros = micros();
 
-    if (this->setpoint_speed > this->current_speed)
-    {
+    if (this->setpoint_speed > this->current_speed) {
       this->current_speed++;
       this->is_updating = true;
-    }
-    else if (this->setpoint_speed < this->current_speed)
-    {
+    } else if (this->setpoint_speed < this->current_speed) {
       this->current_speed--;
       this->is_updating = true;
-    }
-    else
-    {
+    } else {
       this->is_updating = false;
     }
   }
 
   // Transfer the updated speed to the pwm pins
-  if (this->current_speed < 0)
-  {
+  if (this->current_speed < 0) {
     forwardPwm.pulse_perc(0);
     backwardPwm.pulse_perc(abs(this->current_speed));
-  }
-  else
-  {
+  } else {
     forwardPwm.pulse_perc(this->current_speed);
     backwardPwm.pulse_perc(0);
   }
@@ -115,8 +103,7 @@ void L298N::write(float speed)
  * stop the motor instantly. This method is useful for emergency stops or when a quick response
  * is required.
  */
-void L298N::stop()
-{
+void L298N::stop() {
   if (!this->enabled)
     return;
 
@@ -136,8 +123,7 @@ void L298N::stop()
  * @param duration The time in milliseconds for which the motor should run.
  * @param speed The speed at which the motor should operate.
  */
-void L298N::runFor(unsigned long duration, float speed)
-{
+void L298N::runFor(unsigned long duration, float speed) {
   if (!this->enabled)
     return;
 
@@ -145,8 +131,7 @@ void L298N::runFor(unsigned long duration, float speed)
 
   this->write(speed);
 
-  if (millis() - last_millis > duration)
-  {
+  if (millis() - last_millis > duration) {
     this->end();
   }
 }
@@ -160,8 +145,7 @@ void L298N::runFor(unsigned long duration, float speed)
  *
  * @param acceleration The desired acceleration rate.
  */
-void L298N::setAcceleration(uint8_t acceleration)
-{
+void L298N::setAcceleration(uint8_t acceleration) {
   if (!this->enabled)
     return;
 
@@ -177,8 +161,7 @@ void L298N::setAcceleration(uint8_t acceleration)
  *
  * @return True if the motor's speed is updating, false if it has reached the target speed.
  */
-bool L298N::isUpdating()
-{
+bool L298N::isUpdating() {
   if (!this->enabled)
     return 0;
 
@@ -193,8 +176,7 @@ bool L298N::isUpdating()
  *
  * @return The current speed of the motor, ranging from -100 to 100.
  */
-int8_t L298N::read()
-{
+int8_t L298N::read() {
   if (!this->enabled)
     return 0;
 

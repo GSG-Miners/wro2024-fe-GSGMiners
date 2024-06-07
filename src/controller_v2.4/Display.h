@@ -23,8 +23,7 @@
 
 LiquidCrystal_I2C lcd(0x27, COLUMNS, ROWS);
 
-struct Display
-{
+struct Display {
   /**
    * @brief Formats a number into a string with a fixed number of digits and optional sign.
    *
@@ -38,8 +37,7 @@ struct Display
    * @param show_sign If true, includes a '+' or '-' sign before the number.
    * @return A string formatted to the specified width with the number and optional sign.
    */
-  String format(int16_t num, uint8_t max_digits, bool show_sign)
-  {
+  String format(int16_t num, uint8_t max_digits, bool show_sign) {
     // Get the absolute value of the maximum and minimum number that
     // can be displayed according to max_digits
     uint16_t limit = pow(10, max_digits) - 1;
@@ -50,12 +48,10 @@ struct Display
                                               : " ";
 
     // Add leading spaces until the string length reaches max_digits
-    if (show_sign)
-    {
+    if (show_sign) {
       str = sign + str;
     }
-    while (str.length() < max_digits + (show_sign ? 1 : 0))
-    {
+    while (str.length() < max_digits + (show_sign ? 1 : 0)) {
       str = " " + str;
     }
 
@@ -77,10 +73,8 @@ struct Display
    * @param max_digits The maximum number of digits the number should occupy.
    * @param show_sign Whether to show the sign ('+' or '-') of the number.
    */
-  void update(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign)
-  {
-    if (last_num != current_num || current_num == 0)
-    {
+  void update(int16_t last_num, int16_t current_num, uint8_t cursor_x, uint8_t cursor_y, uint8_t max_digits, bool show_sign) {
+    if (last_num != current_num || current_num == 0) {
       last_num = current_num;
       lcd.setCursor(cursor_x, cursor_y);
       lcd.print(format(current_num, max_digits, show_sign));
@@ -94,12 +88,9 @@ struct Display
    * effectively clearing the screen. This method is typically used before writing new
    * content to ensure the display is blank.
    */
-  void clear()
-  {
-    for (uint8_t i = 0; i < ROWS; i++)
-    {
-      for (uint8_t j = 0; j < COLUMNS; j++)
-      {
+  void clear() {
+    for (uint8_t i = 0; i < ROWS; i++) {
+      for (uint8_t j = 0; j < COLUMNS; j++) {
         lcd.setCursor(j, i);
         lcd.print(" ");
       }
@@ -113,8 +104,7 @@ struct Display
    * that fills up over time. This provides a visual indication that the system is starting
    * up and can be used to enhance the user experience during the bootup sequence.
    */
-  void bootup()
-  {
+  void bootup() {
     lcd.setCursor(2, 0);
     lcd.print("INITIALIZING");
 
@@ -122,8 +112,7 @@ struct Display
     lcd.setCursor(2, 1);
     lcd.print("[----------]");
     delay(100);
-    for (uint8_t i = 3; i < 13; i++)
-    {
+    for (uint8_t i = 3; i < 13; i++) {
       lcd.setCursor(i, 1);
       lcd.print("=");
       delay(100);
@@ -139,66 +128,63 @@ struct Display
    *
    * @param layout_id The configuration identifier that determines the label layout.
    */
-  void preset(uint8_t layout_id)
-  {
+  void preset(uint8_t layout_id) {
     static bool preset_printed;
 
-    if (!preset_printed)
-    {
+    if (!preset_printed) {
       // Clear the display to prepare for label printing.
       clear();
 
       // Handle different configuration numbers and their respective label layouts.
-      switch (layout_id)
-      {
-      case 0:
-      {
-        lcd.setCursor(0, 0);
-        lcd.print("L");
-        lcd.setCursor(4, 0);
-        lcd.print("M");
-        lcd.setCursor(8, 0);
-        lcd.print("R");
-        lcd.setCursor(0, 1);
-        lcd.print("X");
-        lcd.setCursor(5, 1);
-        lcd.print("Y");
-        lcd.setCursor(10, 1);
-        lcd.print("C");
-        lcd.setCursor(13, 1);
-        lcd.print("V");
-      }
-      break;
-      case 1:
-      {
-        lcd.setCursor(0, 0);
-        lcd.print("L");
-        lcd.setCursor(5, 0);
-        lcd.print("M");
-        lcd.setCursor(10, 0);
-        lcd.print("R");
-        lcd.setCursor(0, 1);
-        lcd.print("G");
-        lcd.setCursor(10, 1);
-        lcd.print("V");
-      }
-      break;
-      case 2:
-      {
-        lcd.setCursor(0, 0);
-        lcd.print("L");
-        lcd.setCursor(5, 0);
-        lcd.print("M");
-        lcd.setCursor(10, 0);
-        lcd.print("R");
-        lcd.setCursor(0, 1);
-        lcd.print("G");
-        lcd.setCursor(5, 1);
-        lcd.print("X");
-        lcd.setCursor(10, 1);
-        lcd.print("Y");
-      }
-      break;
+      switch (layout_id) {
+        case 0:
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("L");
+            lcd.setCursor(4, 0);
+            lcd.print("M");
+            lcd.setCursor(8, 0);
+            lcd.print("R");
+            lcd.setCursor(0, 1);
+            lcd.print("X");
+            lcd.setCursor(5, 1);
+            lcd.print("Y");
+            lcd.setCursor(10, 1);
+            lcd.print("C");
+            lcd.setCursor(13, 1);
+            lcd.print("V");
+          }
+          break;
+        case 1:
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("L");
+            lcd.setCursor(5, 0);
+            lcd.print("M");
+            lcd.setCursor(10, 0);
+            lcd.print("R");
+            lcd.setCursor(0, 1);
+            lcd.print("G");
+            lcd.setCursor(10, 1);
+            lcd.print("V");
+          }
+          break;
+        case 2:
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("L");
+            lcd.setCursor(5, 0);
+            lcd.print("M");
+            lcd.setCursor(10, 0);
+            lcd.print("R");
+            lcd.setCursor(0, 1);
+            lcd.print("G");
+            lcd.setCursor(5, 1);
+            lcd.print("X");
+            lcd.setCursor(10, 1);
+            lcd.print("Y");
+          }
+          break;
       }
 
       // Mark the preset as printed to prevent future executions.
@@ -213,8 +199,7 @@ struct Display
    * indicating the transition to power saving mode. This function can be used to signal
    * the end of an operation and prepare the user for the device's power-down sequence.
    */
-  void shutdown()
-  {
+  void shutdown() {
     clear();
     lcd.setCursor(6, 0);
     lcd.print("RACE");
@@ -228,8 +213,7 @@ struct Display
     lcd.print("POWER SAVING");
     lcd.setCursor(3, 1);
     lcd.print("MODE IN 3.");
-    for (uint8_t i = 2; i > 0; i--)
-    {
+    for (uint8_t i = 2; i > 0; i--) {
       delay(500);
       lcd.setCursor(11, 1);
       lcd.print(i);
@@ -238,4 +222,4 @@ struct Display
   }
 };
 
-#endif // DISPLAY_H
+#endif  // DISPLAY_H

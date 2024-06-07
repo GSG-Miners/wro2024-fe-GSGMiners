@@ -36,8 +36,7 @@ typedef uint8_t pin_size_t;
 #define MIN_UPDATING_INTERVAL 50000
 #define MAX_UPDATING_INTERVAL 100
 
-class L298N
-{
+class L298N {
 public:
   L298N(pin_size_t forward_pin, pin_size_t backward_pin);
   ~L298N();
@@ -61,4 +60,4 @@ private:
   uint8_t acceleration;
 };
 
-#endif // L298N_H
+#endif  // L298N_H

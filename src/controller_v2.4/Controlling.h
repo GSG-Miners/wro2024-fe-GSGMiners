@@ -2,21 +2,21 @@
  * @file Controlling.h
  * @brief Header file for the Controller, PIDController, DoubleSetpointController, and BangBangController classes.
  *
- * This header file defines a comprehensive suite of control classes designed for a variety of control systems.
- * The base Controller class establishes a common interface and foundational methods for general control tasks.
- * The PIDController class provides a sophisticated Proportional-Integral-Derivative control mechanism, suitable
- * for systems requiring dynamic adjustments based on continuous feedback. The DoubleSetpointController class is
- * tailored for scenarios where control actions are determined by two distinct setpoints, offering a hysteresis
- * feature to prevent oscillation around the setpoint. The BangBangController class extends the
- * DoubleSetpointController with a simple yet effective on-off control strategy, ideal for applications where
+ * This header file defines a comprehensive suite of control classes designed for a variety of control systems. 
+ * The base Controller class establishes a common interface and foundational methods for general control tasks. 
+ * The PIDController class provides a sophisticated Proportional-Integral-Derivative control mechanism, suitable 
+ * for systems requiring dynamic adjustments based on continuous feedback. The DoubleSetpointController class is 
+ * tailored for scenarios where control actions are determined by two distinct setpoints, offering a hysteresis 
+ * feature to prevent oscillation around the setpoint. The BangBangController class extends the 
+ * DoubleSetpointController with a simple yet effective on-off control strategy, ideal for applications where 
  * precision is less critical, and a binary output is sufficient.
  *
- * The ControllerDirection enumeration simplifies the specification of control action direction, improving code
- * clarity and maintainability. These classes are versatile and can be integrated into diverse applications, from
- * straightforward home automation tasks to more complex industrial control systems, demonstrating adaptability
+ * The ControllerDirection enumeration simplifies the specification of control action direction, improving code 
+ * clarity and maintainability. These classes are versatile and can be integrated into diverse applications, from 
+ * straightforward home automation tasks to more complex industrial control systems, demonstrating adaptability 
  * and scalability.
  *
- * By encapsulating control logic within these classes, the code structure remains clean and modular, aligning
+ * By encapsulating control logic within these classes, the code structure remains clean and modular, aligning 
  * with best practices in software design and facilitating ease of maintenance and future enhancements.
  *
  * @author Maximilian Kautzsch
@@ -36,14 +36,12 @@
 #include "WProgram.h"
 #endif
 
-enum class ControllerDirection : bool
-{
+enum class ControllerDirection : bool {
   DIRECT,
   REVERSE
 };
 
-class Controller
-{
+class Controller {
 public:
   Controller(ControllerDirection direction);
   ~Controller();
@@ -66,8 +64,7 @@ protected:
   int16_t setpoint;
 };
 
-class PIDController : public Controller
-{
+class PIDController : public Controller {
 public:
   PIDController(ControllerDirection direction);
   ~PIDController();
@@ -86,8 +83,7 @@ private:
   float d_gain;
 };
 
-class DoubleSetpointController : public Controller
-{
+class DoubleSetpointController : public Controller {
 public:
   DoubleSetpointController(ControllerDirection direction);
   ~DoubleSetpointController();
@@ -104,8 +100,7 @@ private:
   int16_t high_state;
 };
 
-class BangBangController : public DoubleSetpointController
-{
+class BangBangController : public DoubleSetpointController {
 public:
   BangBangController(ControllerDirection direction);
   ~BangBangController();
@@ -119,4 +114,4 @@ private:
   int16_t high_state;
 };
 
-#endif // CONTROLLING_H
+#endif  // CONTROLLING_H

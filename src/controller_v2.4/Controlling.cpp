@@ -7,9 +7,9 @@
 #include <sys/_stdint.h>
 #include "Controlling.h"
 
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
-///  @class  Controller
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
+/// @class  Controller
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * @brief Initializes the controller with a specified direction.
@@ -21,8 +21,7 @@
  * @param direction The initial direction of control for the controller.
  */
 Controller::Controller(ControllerDirection direction)
-    : controller_direction(direction), update_delay(50)
-{
+  : controller_direction(direction), update_delay(50) {
 }
 
 /**
@@ -31,8 +30,7 @@ Controller::Controller(ControllerDirection direction)
  * Cleans up the Controller object when it is no longer needed, ensuring that any
  * allocated resources are properly released.
  */
-Controller::~Controller()
-{
+Controller::~Controller() {
 }
 
 /**
@@ -43,8 +41,7 @@ Controller::~Controller()
  *
  * @param setpoint The target setpoint value for the controller.
  */
-void Controller::setSetpoint(int16_t setpoint)
-{
+void Controller::setSetpoint(int16_t setpoint) {
   if (!this->enabled)
     return;
 
@@ -56,8 +53,7 @@ void Controller::setSetpoint(int16_t setpoint)
  *
  * Prepares the controller for operation by setting its enabled status to true.
  */
-void Controller::begin()
-{
+void Controller::begin() {
   this->enabled = true;
 }
 
@@ -66,8 +62,7 @@ void Controller::begin()
  *
  * Stops the controller from operating by setting its enabled status to false.
  */
-void Controller::end()
-{
+void Controller::end() {
   this->enabled = false;
 }
 
@@ -79,8 +74,7 @@ void Controller::end()
  *
  * @param direction The desired operational direction for the controller.
  */
-void Controller::setDirection(ControllerDirection direction)
-{
+void Controller::setDirection(ControllerDirection direction) {
   if (!this->enabled)
     return;
 
@@ -95,8 +89,7 @@ void Controller::setDirection(ControllerDirection direction)
  *
  * @param sample_time The desired update interval for the controller.
  */
-void Controller::setSampleTime(uint8_t sample_time)
-{
+void Controller::setSampleTime(uint8_t sample_time) {
   if (!this->enabled)
     return;
 
@@ -109,13 +102,11 @@ void Controller::setSampleTime(uint8_t sample_time)
  * Sends the current input, setpoint, and output values of the controller to the
  * serial port for plotting or monitoring, aiding in tuning and diagnostics.
  */
-void Controller::plotData()
-{
+void Controller::plotData() {
   if (!this->enabled)
     return;
 
-  if (Serial)
-  {
+  if (Serial) {
     Serial.print(this->input);
     Serial.print(",");
     Serial.print(this->setpoint);
@@ -132,8 +123,7 @@ void Controller::plotData()
  *
  * @return The current setpoint value of the controller.
  */
-int16_t Controller::getSetpoint()
-{
+int16_t Controller::getSetpoint() {
   if (!this->enabled)
     return 0;
 
@@ -149,17 +139,16 @@ int16_t Controller::getSetpoint()
  * @param input The current input value to the controller.
  * @return The computed output value from the controller.
  */
-int16_t Controller::getOutput(int16_t input)
-{
+int16_t Controller::getOutput(int16_t input) {
   if (!this->enabled)
     return 0;
 
   return this->output;
 }
 
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
-///  @class  PIDController
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
+/// @class  PIDController
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * @brief Initializes the PID controller with a specified direction.
@@ -171,8 +160,7 @@ int16_t Controller::getOutput(int16_t input)
  * @param direction The initial direction of control for the PID controller.
  */
 PIDController::PIDController(ControllerDirection direction)
-    : Controller(direction)
-{
+  : Controller(direction) {
   this->p_gain = 1.00;
   this->i_gain = 1.00;
   this->d_gain = 1.00;
@@ -185,8 +173,7 @@ PIDController::PIDController(ControllerDirection direction)
  *
  * Ensures that any resources allocated to the PID controller are properly released.
  */
-PIDController::~PIDController()
-{
+PIDController::~PIDController() {
 }
 
 /**
@@ -200,18 +187,15 @@ PIDController::~PIDController()
  * @param integral_gain The gain for the integral term of the PID controller.
  * @param derivative_gain The gain for the derivative term of the PID controller.
  */
-void PIDController::tune(float proportional_gain, float integral_gain, float derivative_gain)
-{
-  if (proportional_gain < 0 || integral_gain < 0 || derivative_gain < 0 || !this->enabled)
-  {
+void PIDController::tune(float proportional_gain, float integral_gain, float derivative_gain) {
+  if (proportional_gain < 0 || integral_gain < 0 || derivative_gain < 0 || !this->enabled) {
     return;
   }
   this->p_gain = proportional_gain;
   this->i_gain = integral_gain;
   this->d_gain = derivative_gain;
 
-  if (this->controller_direction == ControllerDirection::REVERSE)
-  {
+  if (this->controller_direction == ControllerDirection::REVERSE) {
     this->p_gain = -this->p_gain;
     this->i_gain = -this->i_gain;
     this->d_gain = -this->d_gain;
@@ -227,19 +211,15 @@ void PIDController::tune(float proportional_gain, float integral_gain, float der
  * @param min_output The lower bound of the controller's output range.
  * @param max_output The upper bound of the controller's output range.
  */
-void PIDController::setLimits(int16_t min_output, int16_t max_output)
-{
+void PIDController::setLimits(int16_t min_output, int16_t max_output) {
   if (!this->enabled)
     return;
 
-  if (min_output < max_output)
-  {
+  if (min_output < max_output) {
     this->min_output = min_output;
     this->max_output = max_output;
     this->limits_configured = true;
-  }
-  else
-  {
+  } else {
     return;
   }
 }
@@ -255,8 +235,7 @@ void PIDController::setLimits(int16_t min_output, int16_t max_output)
  * @param input The current input value from the system being controlled.
  * @return The calculated control output to be applied to the system.
  */
-int16_t PIDController::getOutput(int16_t input)
-{
+int16_t PIDController::getOutput(int16_t input) {
   if (!this->enabled)
     return 0;
 
@@ -266,23 +245,20 @@ int16_t PIDController::getOutput(int16_t input)
   this->input = input;
 
   // Update the values, depending on the updating interval.
-  if (millis() - last_millis > this->update_delay)
-  {
+  if (millis() - last_millis > this->update_delay) {
     last_millis = millis();
 
     // Calculate the error, error-sum, and error-differential.
     error_value = this->setpoint - this->input;
     error_sum += error_value * (millis() - last_millis);
-    if (this->limits_configured)
-    {
+    if (this->limits_configured) {
       error_sum = constrain(error_sum, this->min_output, this->max_output);
     }
     error_differential = (error_value - last_error_value) / (millis() - last_millis);
 
     // Calculate the output. Constrain, if necessary.
     this->output = this->p_gain * error_value + this->i_gain * error_sum + this->d_gain * error_differential;
-    if (this->limits_configured)
-    {
+    if (this->limits_configured) {
       this->output = constrain(this->output, this->min_output, this->max_output);
     }
 
@@ -290,19 +266,16 @@ int16_t PIDController::getOutput(int16_t input)
   }
 
   // Return the output.
-  if (this->limits_configured)
-  {
+  if (this->limits_configured) {
     return this->constrained_output;
-  }
-  else
-  {
+  } else {
     return this->output;
   }
 }
 
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
-///  @class  DoubleSetpointController
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
+/// @class  DoubleSetpointController
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * @brief Initializes the double setpoint controller with a specified direction.
@@ -314,8 +287,7 @@ int16_t PIDController::getOutput(int16_t input)
  * @param direction The initial direction of control for the double setpoint controller.
  */
 DoubleSetpointController::DoubleSetpointController(ControllerDirection direction)
-    : Controller(direction)
-{
+  : Controller(direction) {
   this->hysteresis = 2;
   this->low_state = 80;
   this->medium_state = 90;
@@ -327,8 +299,7 @@ DoubleSetpointController::DoubleSetpointController(ControllerDirection direction
  *
  * Ensures that any resources allocated to the double setpoint controller are properly released.
  */
-DoubleSetpointController::~DoubleSetpointController()
-{
+DoubleSetpointController::~DoubleSetpointController() {
 }
 
 /**
@@ -339,8 +310,7 @@ DoubleSetpointController::~DoubleSetpointController()
  *
  * @param hysteresis The hysteresis value, representing the allowable deviation from the setpoint.
  */
-void DoubleSetpointController::setHysteresis(uint8_t hysteresis)
-{
+void DoubleSetpointController::setHysteresis(uint8_t hysteresis) {
   if (!this->enabled)
     return;
 
@@ -358,8 +328,7 @@ void DoubleSetpointController::setHysteresis(uint8_t hysteresis)
  * @param medium_state The output value when the input is within the hysteresis range.
  * @param high_state The output value when the input is above the setpoint plus hysteresis.
  */
-void DoubleSetpointController::setStates(int16_t low_state, int16_t medium_state, int16_t high_state)
-{
+void DoubleSetpointController::setStates(int16_t low_state, int16_t medium_state, int16_t high_state) {
   if (!this->enabled)
     return;
 
@@ -376,8 +345,7 @@ void DoubleSetpointController::setStates(int16_t low_state, int16_t medium_state
  *
  * @return The hysteresis value used by the controller.
  */
-uint8_t DoubleSetpointController::getHysteresis()
-{
+uint8_t DoubleSetpointController::getHysteresis() {
   if (!this->enabled)
     return 0;
 
@@ -394,41 +362,28 @@ uint8_t DoubleSetpointController::getHysteresis()
  * @param input The current input value from the system being controlled.
  * @return The updated output state of the controller.
  */
-int16_t DoubleSetpointController::getOutput(int16_t input)
-{
+int16_t DoubleSetpointController::getOutput(int16_t input) {
   if (!this->enabled)
     return 0;
 
   static unsigned long last_millis;
   this->input = input;
 
-  if (millis() - last_millis > this->update_delay)
-  {
+  if (millis() - last_millis > this->update_delay) {
     last_millis = millis();
 
-    if (this->input >= this->setpoint - this->hysteresis && this->input <= this->setpoint + this->hysteresis)
-    {
+    if (this->input >= this->setpoint - this->hysteresis && this->input <= this->setpoint + this->hysteresis) {
       this->output = this->medium_state;
-    }
-    else if (this->input < this->setpoint - this->hysteresis)
-    {
-      if (this->controller_direction == ControllerDirection::DIRECT)
-      {
+    } else if (this->input < this->setpoint - this->hysteresis) {
+      if (this->controller_direction == ControllerDirection::DIRECT) {
         this->output = this->high_state;
-      }
-      else if (this->controller_direction == ControllerDirection::REVERSE)
-      {
+      } else if (this->controller_direction == ControllerDirection::REVERSE) {
         this->output = this->low_state;
       }
-    }
-    else if (this->input > this->setpoint + this->hysteresis)
-    {
-      if (this->controller_direction == ControllerDirection::DIRECT)
-      {
+    } else if (this->input > this->setpoint + this->hysteresis) {
+      if (this->controller_direction == ControllerDirection::DIRECT) {
         this->output = this->low_state;
-      }
-      else if (this->controller_direction == ControllerDirection::REVERSE)
-      {
+      } else if (this->controller_direction == ControllerDirection::REVERSE) {
         this->output = this->high_state;
       }
     }
@@ -437,9 +392,9 @@ int16_t DoubleSetpointController::getOutput(int16_t input)
   return this->output;
 }
 
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
-///  @class  BangBangController
-/// ––––––––––––––––––––––––––––––––––––––––––––––––––
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
+/// @class  BangBangController
+///ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * @brief Constructs a BangBangController object, inheriting from DoubleSetpointController.
@@ -451,8 +406,7 @@ int16_t DoubleSetpointController::getOutput(int16_t input)
  * @param direction The initial direction of control (DIRECT or REVERSE).
  */
 BangBangController::BangBangController(ControllerDirection direction)
-    : DoubleSetpointController(direction)
-{
+  : DoubleSetpointController(direction) {
 }
 
 /**
@@ -461,8 +415,7 @@ BangBangController::BangBangController(ControllerDirection direction)
  * Cleans up the BangBangController object when it is no longer needed, ensuring that any
  * allocated resources are properly released.
  */
-BangBangController::~BangBangController()
-{
+BangBangController::~BangBangController() {
 }
 
 /**
@@ -475,8 +428,7 @@ BangBangController::~BangBangController()
  * @param low_state The output state when the input is below the setpoint minus hysteresis.
  * @param high_state The output state when the input is above the setpoint plus hysteresis.
  */
-void BangBangController::setStates(int16_t low_state, int16_t high_state)
-{
+void BangBangController::setStates(int16_t low_state, int16_t high_state) {
   if (!this->enabled)
     return;
 
@@ -496,37 +448,26 @@ void BangBangController::setStates(int16_t low_state, int16_t high_state)
  * @param input The current input value from the system being controlled.
  * @return The output state of the controller, either low_state or high_state.
  */
-int16_t BangBangController::getOutput(int16_t input)
-{
+int16_t BangBangController::getOutput(int16_t input) {
   if (!this->enabled)
     return 0;
 
   static unsigned long last_millis;
   this->input = input;
 
-  if (millis() - last_millis > this->update_delay)
-  {
+  if (millis() - last_millis > this->update_delay) {
     last_millis = millis();
 
-    if (this->input < this->setpoint - this->hysteresis)
-    {
-      if (this->controller_direction == ControllerDirection::DIRECT)
-      {
+    if (this->input < this->setpoint - this->hysteresis) {
+      if (this->controller_direction == ControllerDirection::DIRECT) {
         this->output = this->high_state;
-      }
-      else if (this->controller_direction == ControllerDirection::REVERSE)
-      {
+      } else if (this->controller_direction == ControllerDirection::REVERSE) {
         this->output = this->low_state;
       }
-    }
-    else if (this->input > this->setpoint + this->hysteresis)
-    {
-      if (this->controller_direction == ControllerDirection::DIRECT)
-      {
+    } else if (this->input > this->setpoint + this->hysteresis) {
+      if (this->controller_direction == ControllerDirection::DIRECT) {
         this->output = this->low_state;
-      }
-      else if (this->controller_direction == ControllerDirection::REVERSE)
-      {
+      } else if (this->controller_direction == ControllerDirection::REVERSE) {
         this->output = this->high_state;
       }
     }

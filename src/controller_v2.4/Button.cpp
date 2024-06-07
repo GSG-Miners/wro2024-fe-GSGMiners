@@ -15,7 +15,7 @@
  * @param pin The microcontroller pin connected to the button.
  */
 Button::Button(pin_size_t pin)
-    : pin(pin) {}
+  : pin(pin) {}
 
 /**
  * @brief Destructor for the Button class.
@@ -33,8 +33,7 @@ Button::~Button() {}
  * sets a default debounce delay to prevent false triggering from switch bounce, and
  * enables the button to start accepting input.
  */
-void Button::begin()
-{
+void Button::begin() {
   this->debounce_delay = DEBOUNCE_DELAY;
   pinMode(this->pin, INPUT_PULLUP);
   this->enabled = true;
@@ -46,8 +45,7 @@ void Button::begin()
  * Marks the button as disabled within the software, which will prevent any further
  * input processing until the button is re-enabled.
  */
-void Button::end()
-{
+void Button::end() {
   this->enabled = false;
 }
 
@@ -59,8 +57,7 @@ void Button::end()
  *
  * @param debounce_delay The desired debounce delay in milliseconds.
  */
-void Button::setDebounceDelay(uint8_t debounce_delay)
-{
+void Button::setDebounceDelay(uint8_t debounce_delay) {
   if (!this->enabled)
     return;
 
@@ -76,13 +73,11 @@ void Button::setDebounceDelay(uint8_t debounce_delay)
  *
  * @return The debounced state of the button (HIGH or LOW).
  */
-bool Button::readState()
-{
+bool Button::readState() {
   if (!this->enabled)
     return 0;
 
-  if (this->updating_location != LOCATION_B && this->updating_location != LOCATION_C && this->updating_location != LOCATION_D)
-  {
+  if (this->updating_location != LOCATION_B && this->updating_location != LOCATION_C && this->updating_location != LOCATION_D) {
     this->updating_location = LOCATION_A;
   }
 
@@ -92,45 +87,39 @@ bool Button::readState()
   this->current_state = digitalRead(this->pin);
 
   // Check if the button state has changed.
-  if (this->current_state != last_flickerable_state)
-  {
+  if (this->current_state != last_flickerable_state) {
     last_debounce_time = millis();
     last_flickerable_state = this->current_state;
   }
 
   // Update the steady state after the debounce delay has passed.
-  if (millis() - last_debounce_time > this->debounce_delay)
-  {
+  if (millis() - last_debounce_time > this->debounce_delay) {
     this->last_steady_state = this->current_state;
   }
 
   // Increment the press count based on the counting mode.
-  switch (this->counting_mode)
-  {
-  case CHANGE: // Count every state change.
-  {
-    if (this->last_steady_state != this->current_state)
-    {
-      this->count++;
-    }
-  }
-  break;
-  case RISING: // Count only on rising edge (button press).
-  {
-    if (this->last_steady_state == LOW && this->current_state == HIGH)
-    {
-      this->count++;
-    }
-    break;
-  }
-  default: // Count only on falling edge (button release).
-  {
-    if (this->last_steady_state == HIGH && this->current_state == LOW)
-    {
-      this->count++;
-    }
-  }
-  break;
+  switch (this->counting_mode) {
+    case CHANGE:  // Count every state change.
+      {
+        if (this->last_steady_state != this->current_state) {
+          this->count++;
+        }
+      }
+      break;
+    case RISING:  // Count only on rising edge (button press).
+      {
+        if (this->last_steady_state == LOW && this->current_state == HIGH) {
+          this->count++;
+        }
+        break;
+      }
+    default:  // Count only on falling edge (button release).
+      {
+        if (this->last_steady_state == HIGH && this->current_state == LOW) {
+          this->count++;
+        }
+      }
+      break;
   }
 
   return this->last_steady_state;
@@ -145,13 +134,11 @@ bool Button::readState()
  *
  * @return True if the button has been pressed, false otherwise.
  */
-bool Button::isPressed()
-{
+bool Button::isPressed() {
   if (!this->enabled)
     return 0;
 
-  if (this->updating_location != LOCATION_A && this->updating_location != LOCATION_C && this->updating_location != LOCATION_D)
-  {
+  if (this->updating_location != LOCATION_A && this->updating_location != LOCATION_C && this->updating_location != LOCATION_D) {
     this->updating_location = LOCATION_B;
     this->readState();
   }
@@ -172,13 +159,11 @@ bool Button::isPressed()
  *
  * @return True if the button has been released since the last state check, false otherwise.
  */
-bool Button::isReleased()
-{
+bool Button::isReleased() {
   if (!this->enabled)
     return 0;
 
-  if (this->updating_location != LOCATION_A && this->updating_location != LOCATION_B && this->updating_location != LOCATION_D)
-  {
+  if (this->updating_location != LOCATION_A && this->updating_location != LOCATION_B && this->updating_location != LOCATION_D) {
     this->updating_location = LOCATION_C;
     this->readState();
   }
@@ -195,15 +180,13 @@ bool Button::isReleased()
  * @param counting_mode Specifies the type of button press events to count: CHANGE, RISING, or FALLING.
  * @return The count of button presses as per the specified counting mode.
  */
-uint8_t Button::readCount(uint8_t counting_mode)
-{
+uint8_t Button::readCount(uint8_t counting_mode) {
   if (!this->enabled)
     return 0;
 
   this->counting_mode = counting_mode;
 
-  if (this->updating_location != LOCATION_A && this->updating_location != LOCATION_B && this->updating_location != LOCATION_C)
-  {
+  if (this->updating_location != LOCATION_A && this->updating_location != LOCATION_B && this->updating_location != LOCATION_C) {
     this->updating_location = LOCATION_D;
     this->readState();
   }
@@ -220,7 +203,6 @@ uint8_t Button::readCount(uint8_t counting_mode)
  *
  * @return The total count of button release events.
  */
-uint8_t Button::readCount()
-{
+uint8_t Button::readCount() {
   this->readCount(FALLING);
 }

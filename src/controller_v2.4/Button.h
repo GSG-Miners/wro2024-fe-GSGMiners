@@ -31,8 +31,7 @@
 
 #define DEBOUNCE_DELAY 50
 
-class Button
-{
+class Button {
 public:
   Button(pin_size_t pin);
   ~Button();
@@ -57,4 +56,4 @@ private:
   uint8_t counting_mode;
 };
 
-#endif // BUTTON_H
+#endif  // BUTTON_H

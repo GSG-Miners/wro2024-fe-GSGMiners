@@ -97,8 +97,10 @@ struct Camera {
    *
    * @return The X-coordinate of the first detected object, or 0 if no objects are detected.
    */
-  uint16_t readX() {
-    if (pixy.ccc.numBlocks)
+  uint16_t readX(bool magenta_unlocked) {
+    if (pixy.ccc.numBlocks && magenta_unlocked && readColour(magenta_unlocked) == Colour::MAGENTA)
+      return pixy.ccc.blocks[0].m_x;
+    else if (pixy.ccc.numBlocks && !magenta_unlocked)
       return pixy.ccc.blocks[0].m_x;
     else
       return 0;
@@ -113,9 +115,23 @@ struct Camera {
    *
    * @return The Y-coordinate of the first detected object, or 0 if no objects are detected.
    */
-  uint8_t readY() {
-    if (pixy.ccc.numBlocks)
+  uint8_t readY(bool magenta_unlocked) {
+    if (pixy.ccc.numBlocks && magenta_unlocked && readColour(magenta_unlocked) == Colour::MAGENTA)
       return pixy.ccc.blocks[0].m_y;
+    else if (pixy.ccc.numBlocks && !magenta_unlocked)
+      return pixy.ccc.blocks[0].m_y;
+    else
+      return 0;
+  }
+
+  /**
+   *Â @brief Retrieves the index of the block.
+   */
+  uint8_t readIndex(bool magenta_unlocked) {
+    if (pixy.ccc.numBlocks && magenta_unlocked && readColour(magenta_unlocked) == Colour::MAGENTA)
+      return pixy.ccc.blocks[0].m_index;
+    else if (pixy.ccc.numBlocks && !magenta_unlocked)
+      return pixy.ccc.blocks[0].m_index;
     else
       return 0;
   }
