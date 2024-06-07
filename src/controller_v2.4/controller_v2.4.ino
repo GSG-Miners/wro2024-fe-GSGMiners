@@ -1,5 +1,5 @@
 /**
- * @file controller_v2.3
+ * @file controller_v2.4
  * @brief Comprehensive control system for autonomous navigation and race management.
  *
  * This file encapsulates the logic for an autonomous vehicle's navigation system, integrating
@@ -11,7 +11,7 @@
  * to navigate complex courses and track its performance throughout a race.
  *
  * @author Maximilian Kautzsch
- * @date Updated on 3rd June 2024
+ * @date Updated on 7th June 2024
  * @copyright Copyright (c) 2024 Maximilian Kautzsch
  * Licensed under MIT License.
  */
@@ -63,18 +63,26 @@ struct Race {
   TurnMode turn_mode;
   bool enabled;
   bool turning;
-  bool collision_avoidance_blocked;
-  bool obstacle_steering_blocked;
-  bool first_obstacle_detected;
-  bool magenta_unlocked;
-  bool obstacles_included;
-  bool parking_enabled;
   uint8_t sections;
   uint8_t laps;
   int16_t setpoint_yaw_angle;
   int16_t drift_correction;
 };
 
+/**
+ * @struct Safety
+ * @brief Struct to manage obstacle avoidance and collision prevention states.
+ */
+struct Safety {
+  bool collision_avoidance_blocked;
+  bool obstacle_steering_blocked;
+  bool first_obstacle_detected;
+  bool magenta_unlocked;
+  bool obstacles_included;
+  bool parking_enabled;
+};
+
+static Safety safety;
 static Race race;
 static Parameters initial;
 static Parameters last;
@@ -109,7 +117,6 @@ DoubleSetpointController controller(ControllerDirection::DIRECT);
  * attaches the servo motor, and sets initial values for the controller and race direction. It is
  * called once when the program starts.
  */
-
 void setup() {
   // Init communication protocols
   Serial.begin(9600);
@@ -138,8 +145,8 @@ void setup() {
   controller.setHysteresis(1);
 
   // Init Race Parameters
-  race.obstacles_included = Mode::OBSTACLES_INCLUDED;
-  race.parking_enabled = Mode::PARKING_ENABLED;
+  safety.obstacles_included = Mode::OBSTACLES_INCLUDED;
+  safety.parking_enabled = Mode::PARKING_ENABLED;
   race.direction = Direction::NONE;
 }
 
@@ -162,7 +169,7 @@ void loop() {
   showData();
 
   // The general algorithm of the robot's autonomous control system.
-  (race.parking_enabled && race.obstacles_included) ? parkingDemo() : drive();
+  (safety.parking_enabled && safety.obstacles_included) ? parkingDemo() : drive();
 }
 
 
@@ -189,7 +196,10 @@ void loop() {
  * 3 Navigation (obstacle steering, gyro-based steering, turning)
  */
 void drive() {
+  //âââââ PARAMETERS âââââ
   const uint8_t FREQUENCY = 20;
+  //ââââââââââââââââââââââ
+
   static unsigned long last_millis;
 
   if (millis() - last_millis > (1000 / FREQUENCY)) {
@@ -197,14 +207,14 @@ void drive() {
 
     // LAYER 1
     if (getLaps() >= 3) {
-      handleStop(race.obstacles_included);
+      handleStop(safety.obstacles_included);
     } else {
       // LAYER 2
       if (collisionRisk()) {
         avoidCollision();
       } else {
         // LAYER 3
-        race.obstacles_included ? handleTurns(TurnMode::SWIFT) : handleTurns(TurnMode::SHARP);
+        safety.obstacles_included ? handleTurns(TurnMode::SWIFT) : handleTurns(TurnMode::SHARP);
       }
     }
   }
@@ -232,8 +242,9 @@ void handleStop(bool obstacles_included) {
   switch (obstacles_included) {
     case true:
       {
-        // CONSTANT PARAMETERS.
+        //âââââ PARAMETERS âââââ
         const uint16_t LAST_SECTION_DURATION = 3200;
+        //ââââââââââââââââââââââ
 
         // Static variables for managing the stopping timer.
         static bool stopping_timer_locked;
@@ -251,7 +262,7 @@ void handleStop(bool obstacles_included) {
           stop();
         } else {
           // LAYER 2: Collision avoidance layer.
-          if (collisionRisk() && !race.collision_avoidance_blocked) {
+          if (collisionRisk() && !safety.collision_avoidance_blocked) {
             avoidCollision();
           } else {
             // LAYER 3: Handle swift turns when obstacles are included.
@@ -267,7 +278,7 @@ void handleStop(bool obstacles_included) {
           stop();
         } else {
           // LAYER 2: Collision avoidance layer.
-          if (collisionRisk() && !race.collision_avoidance_blocked) {
+          if (collisionRisk() && !safety.collision_avoidance_blocked) {
             avoidCollision();
           } else {
             // LAYER 3: Handle sharp turns when obstacles are not included.
@@ -279,6 +290,7 @@ void handleStop(bool obstacles_included) {
   }
 }
 
+// Global variables for managing the duration between turns.
 const uint16_t INTER_TURN_DURATION = 3000;
 static bool inter_turn_timer_locked = true;
 static long inter_turn_timer = -INTER_TURN_DURATION + 2000;
@@ -288,10 +300,10 @@ static long inter_turn_timer = -INTER_TURN_DURATION + 2000;
  *
  * This function selects and executes the appropriate turning strategy according to the provided
  * turn mode. It allows the vehicle to adapt its turning behavior dynamically based on different
- * scenarios, such as sharp turns, adaptive turns, or swift turns for precise maneuvering.
+ * scenarios, such as sharp turns or swift turns for precise maneuvering.
  *
  * @param turn_mode The mode that determines which turn handling strategy to execute. It can be
- * TurnMode::SHARP, TurnMode::ADAPTIVE, or TurnMode::SWIFT.
+ * TurnMode::SHARP or TurnMode::SWIFT.
  */
 void handleTurns(TurnMode turn_mode) {
   // Preparing to initiate a turn based on detected track conditions and vehicle orientation.
@@ -300,7 +312,9 @@ void handleTurns(TurnMode turn_mode) {
   switch (turn_mode) {
     case TurnMode::SHARP:
       {
+        //âââââ PARAMETERS âââââ
         const uint8_t INITIATING_DISTANCE = 60;  // Distance at which the turning process is started.
+        //ââââââââââââââââââââââ
 
         // Handles standard turning behavior.
         if ((detectedGap() && current.distance_front <= INITIATING_DISTANCE) || race.turning) {
@@ -315,12 +329,14 @@ void handleTurns(TurnMode turn_mode) {
       break;
     case TurnMode::SWIFT:
       {
-        int16_t angle_difference;
-        const uint8_t INITIAL_MIN_DISTANCE = 0;
-        const uint8_t INITIAL_MAX_DISTANCE = 60;
+        //âââââ PARAMETERS âââââ
+        const uint8_t INITIATING_MIN_DISTANCE = 0;
+        const uint8_t INITIATING_MAX_DISTANCE = 60;
+        //ââââââââââââââââââââââ
 
-        // Boolean flags for various conditions.
-        bool distance_in_range = (current.distance_front <= INITIAL_MAX_DISTANCE) ? 1 : 0;
+        // Sharp-turning specified variables for various conditions.
+        int16_t angle_difference;
+        bool distance_in_range = (current.distance_front <= INITIATING_MAX_DISTANCE) ? 1 : 0;
         bool angle_in_range = (abs(race.setpoint_yaw_angle - current.yaw_angle) <= 20) ? 1 : 0;
         bool obstacles_detected = (current.colour == Colour::RED || current.colour == Colour::GREEN) ? 1 : 0;
         bool inter_turn_timer_passed = (inter_turn_timer_locked && millis() - inter_turn_timer > INTER_TURN_DURATION) ? 1 : 0;
@@ -331,30 +347,30 @@ void handleTurns(TurnMode turn_mode) {
           swiftTurn();
         } else {
           // If first obstacle has been detected, save its index to the initial index.
-          if (!race.first_obstacle_detected && pixy.ccc.numBlocks) {
+          if (!safety.first_obstacle_detected && pixy.ccc.numBlocks) {
             last.block_index = current.block_index;
-            race.first_obstacle_detected = true;
+            safety.first_obstacle_detected = true;
           }
 
           // If the index has changed, block obstacle steering.
-          if (current.block_index != last.block_index && race.first_obstacle_detected) {
+          if (current.block_index != last.block_index && safety.first_obstacle_detected) {
             last.block_index = current.block_index;
-            race.obstacle_steering_blocked = true;
+            safety.obstacle_steering_blocked = true;
           }
 
           // If conditions are not met, maintain the current path and manage obstacles.
           angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
-          if (race.obstacles_included && pixy.ccc.numBlocks && !race.obstacle_steering_blocked) {
-            race.collision_avoidance_blocked = false;
+          if (safety.obstacles_included && pixy.ccc.numBlocks && !safety.obstacle_steering_blocked) {
+            safety.collision_avoidance_blocked = false;
             obstacleSteering(current.x_pos, current.y_pos, current.colour);
 
             current.speed = Constants::REDUCED_SPEED;
           } else if (large_outer_distance) {
-            race.collision_avoidance_blocked = false;
+            safety.collision_avoidance_blocked = false;
             trackOuterWall(60);
             current.speed = Constants::REDUCED_SPEED;
           } else {
-            race.collision_avoidance_blocked = false;
+            safety.collision_avoidance_blocked = false;
             maintainStraightPath(angle_difference);
             current.speed = Constants::REDUCED_SPEED;
           }
@@ -383,16 +399,16 @@ void swiftTurn() {
     COMPLETE     // State indicating the turn has been completed.
   };
 
-  // CONSTANT PARAMETERS.
+  //âââââ PARAMETERS âââââ
   const uint8_t CORRECTING_ANGLE_DIFFERENCE = 55;
   const uint16_t REVERSE_DURATION = 4000;
+  //ââââââââââââââââââââââ
 
-  // Static variables for maintaining the current state and other control parameters.
+  // Variables for maintaining the current state and other control parameters.
   static TurnState turn_state;
-  int16_t angle_difference;
   static bool updated_setpoint_angle;
-
   static bool turning_timer_locked;
+  int16_t angle_difference;
   static unsigned long turning_timer;
 
   switch (turn_state) {
@@ -406,7 +422,7 @@ void swiftTurn() {
         angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
 
         // Calculate the angle difference between the setpoint and current yaw angle.
-        race.collision_avoidance_blocked = false;
+        safety.collision_avoidance_blocked = false;
 
         // Update the setpoint yaw angle based on the turning direction.
         if (!updated_setpoint_angle) {
@@ -423,12 +439,13 @@ void swiftTurn() {
       {
         bool small_outer_distance;
 
+        // Specify when the distance to the outer restriction of the parcour is small.
         if (race.direction == Direction::ANTICLOCKWISE && current.distance_right <= 50) small_outer_distance = true;
         else if (race.direction == Direction::CLOCKWISE && current.distance_left <= 50) small_outer_distance = true;
         else small_outer_distance = false;
 
         // Actively managing the turning process.
-        race.collision_avoidance_blocked = true;  // Block collision avoidance during turn.
+        safety.collision_avoidance_blocked = true;  // Block collision avoidance during turn.
 
         // Lock the turning timer if not already locked.
         if (!turning_timer_locked) {
@@ -455,6 +472,7 @@ void swiftTurn() {
             break;
           case false:
             {
+              // Transition to the turning if the front distance is less than or equal to 5cm.
               if (current.distance_front <= 5) {
                 turn_state = TurnState::CORRECTING;  // Transition to CORRECTING state.
               } else {
@@ -479,9 +497,10 @@ void swiftTurn() {
         static unsigned long reversing_timer;
         static bool reversing_timer_locked;
 
+        // Boolean flag for reverse timer.
         bool reverse_duration_passed = (reversing_timer_locked && millis() - reversing_timer > REVERSE_DURATION) ? 1 : 0;
 
-        race.collision_avoidance_blocked = true;  // Unblock collision avoidance.
+        safety.collision_avoidance_blocked = true;  // Unblock collision avoidance.
 
         // Calculate the angle difference between the setpoint and current yaw angle.
         angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
@@ -521,8 +540,8 @@ void swiftTurn() {
 
         // Unlock the turning process.
         turn_state = TurnState::INITIATE;
-        race.first_obstacle_detected = false;
-        race.obstacle_steering_blocked = false;
+        safety.first_obstacle_detected = false;
+        safety.obstacle_steering_blocked = false;
         race.turning = false;
       }
       break;
@@ -545,8 +564,11 @@ void sharpTurn() {
     COMPLETE   // State indicating the turn has been completed.
   };
 
+  //âââââ PARAMETERS âââââ
   const uint8_t COMPLETE_ANGLE_DIFFERENCE = 10;  // Angle difference indicating that the process is finished.
+  //ââââââââââââââââââââââ
 
+  // Variables for maintaining the current state and other control parameters.
   static TurnState turn_state;
   static bool updated_setpoint_angle;
   int16_t angle_difference;
@@ -570,6 +592,8 @@ void sharpTurn() {
       break;
     case TurnState::TURNING:
       {
+        // Slowly transition to complete state by maintaining a straight path
+        // when the angle difference gets smaller from time to time.
         angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
         if (abs(angle_difference) <= COMPLETE_ANGLE_DIFFERENCE) {
           turn_state = TurnState::COMPLETE;  // Transition to COMPLETE state.
@@ -600,139 +624,6 @@ void sharpTurn() {
         turn_state = TurnState::INITIATE;
         race.turning = false;
         return;
-      }
-      break;
-  }
-}
-
-/**
- * @brief Manages the adaptive turning behavior of the robot.
- * 
- * This function controls the adaptive turning process of the robot through a state machine approach,
- * ensuring flexible and efficient handling of turns based on the detected track conditions and the
- * vehicle's current orientation. It consists of five states: INITIATE, TRACKING, TURNING, CORRECTING,
- * and COMPLETE, to manage the entire turning process from start to finish.
- */
-void handleAdaptiveTurns() {
-  // Enum for handling different turning states.
-  enum class TurnState : const uint8_t {
-    INITIATE,    // Initial state where the turn is prepared based on track conditions.
-    TRACKING,    // State where the robot tracks the outer walls for better positioning.
-    TURNING,     // State where the robot is actively turning.
-    CORRECTING,  // State for fine-tuning the turn angle.
-    COMPLETE     // State indicating the turn has been completed.
-  };
-
-  static TurnState turn_state;         // Variable to track the current state.
-  static bool updated_setpoint_angle;  // Flag to indicate if the setpoint angle has been updated.
-  int16_t angle_difference;            // Difference between the setpoint and current yaw angle.
-
-  switch (turn_state) {
-    case TurnState::INITIATE:
-      {
-        // Preparing to initiate a turn based on detected track conditions and vehicle orientation.
-        getDirection();
-
-        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
-        if (detectedGap() && current.distance_front <= 70 && abs(angle_difference) <= 20) {
-          race.collision_avoidance_blocked = false;
-          angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
-
-          turn_state = TurnState::TRACKING;  // Transition to the TRACKING state.
-        } else {
-          if (race.obstacles_included && pixy.ccc.numBlocks) {
-            race.collision_avoidance_blocked = false;
-            obstacleSteering(current.x_pos, current.y_pos, current.colour);
-
-            current.speed = Constants::REDUCED_SPEED;
-          } else {
-            race.collision_avoidance_blocked = false;
-            maintainStraightPath(angle_difference);
-            current.speed = Constants::REDUCED_SPEED;
-          }
-        }
-
-        updateSteeringAngle();
-      }
-      break;
-    case TurnState::TRACKING:
-      {
-        // Tracking the outer walls to maintain optimal positioning.
-        race.collision_avoidance_blocked = true;
-        if (detectedGap() && current.distance_front <= 10 && abs(angle_difference) <= 20) {
-          if (!updated_setpoint_angle) {
-            // Update the setpoint angle based on the turn direction.
-            if (race.direction == Direction::ANTICLOCKWISE) race.setpoint_yaw_angle += 90;
-            else if (race.direction == Direction::CLOCKWISE) race.setpoint_yaw_angle -= 90;
-            updated_setpoint_angle = true;
-          } else {
-            turn_state = TurnState::TURNING;  // Transition to TURNING state.
-          }
-        } else {
-          // If not transitioning, maintain a straight path or track the outer wall.
-          if (angle_difference <= -15 || angle_difference >= 15) {
-            maintainStraightPath(angle_difference);
-          } else {
-            trackOuterWall(50);
-          }
-        }
-        updateSteeringAngle();
-        current.speed = Constants::REDUCED_SPEED;
-      }
-      break;
-    case TurnState::TURNING:
-      {
-        // Actively turning the robot based on the setpoint angle.
-        race.collision_avoidance_blocked = true;  // Block collision avoidance during turn.
-
-        angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
-        if (abs(angle_difference) <= 30) {
-          turn_state = TurnState::CORRECTING;  // Transition to CORRECTING state.
-        } else if (current.colour == Colour::RED || current.colour == Colour::GREEN) {
-          turn_state = TurnState::CORRECTING;  // Transition to CORRECTING state if certain colors are detected.
-        } else {
-          // Adjust steering angle based on the direction of the turn.
-          if (race.direction == Direction::ANTICLOCKWISE) {
-            current.steering_angle = Constants::MAX_RIGHT;
-          } else if (race.direction == Direction::CLOCKWISE) {
-            current.steering_angle = Constants::MAX_LEFT;
-          }
-          current.speed = -Constants::REDUCED_SPEED;  // Move the motor in reverse at reduced speed.
-        }
-
-        updateSteeringAngle();
-      }
-      break;
-    case TurnState::CORRECTING:
-      {
-        // Fine-tuning the turn angle for precise positioning.
-        race.collision_avoidance_blocked = false;  // Unblock collision avoidance.
-
-        if (abs(angle_difference) <= 10) {
-          turn_state = TurnState::COMPLETE;  // Transition to COMPLETE state.
-        } else if (current.colour == Colour::RED || current.colour == Colour::GREEN) {
-          race.collision_avoidance_blocked = false;
-          obstacleSteering(current.x_pos, current.y_pos, current.colour);
-        } else {
-          angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
-          // Adjust steering angle for fine-tuning the turn.
-          if (angle_difference >= -10 && angle_difference <= 10) current.steering_angle = 90;
-          if (angle_difference < -10 && angle_difference >= -20) current.steering_angle = 80;
-          if (angle_difference > 10 && angle_difference <= 20) current.steering_angle = 105;
-          if (angle_difference < -20) current.steering_angle = Constants::MAX_LEFT;
-          if (angle_difference > 20) current.steering_angle = Constants::MAX_RIGHT;
-        }
-
-        current.speed = Constants::REDUCED_SPEED;  // Move the motor forward at reduced speed.
-        updateSteeringAngle();
-      }
-      break;
-    case TurnState::COMPLETE:
-      {
-        // Finalizing the turn, resetting the steering angle, and preparing for the next turn.
-        race.sections++;
-        updated_setpoint_angle = false;    // Reset the setpoint angle update flag.
-        turn_state = TurnState::INITIATE;  // Reset the state to INITIATE for the next turn.
       }
       break;
   }
@@ -778,7 +669,11 @@ void initSonars() {
 }
 
 /**
- * @brief Initializes the relay.
+ * @brief Initializes the relay to ensure it starts in a known state.
+ *
+ * This function sets the relay pin to HIGH and then LOW with a short delay in between, ensuring the relay
+ * is correctly initialized. This initial setup is only performed once, as indicated by the static
+ * is_initialized variable.
  */
 void initRelay() {
   static bool is_initialized;
@@ -848,7 +743,7 @@ void park(TurnDirection turn_direction) {
         // Preparing to initiate a turn based on detected track conditions and vehicle orientation.
         angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
 
-        race.collision_avoidance_blocked = false;
+        safety.collision_avoidance_blocked = false;
 
         // Lock the initiating timer if not already locked.
         if (!initiating_timer_locked) {
@@ -878,7 +773,7 @@ void park(TurnDirection turn_direction) {
       break;
     case TurnState::TURNING:
       {
-        race.collision_avoidance_blocked = true;  // Block collision avoidance during turn.
+        safety.collision_avoidance_blocked = true;  // Block collision avoidance during turn.
 
         // Calculate the angle difference between the setpoint and current yaw angle.
         angle_difference = race.setpoint_yaw_angle - current.yaw_angle;
@@ -902,7 +797,7 @@ void park(TurnDirection turn_direction) {
         static unsigned long reversing_timer;
         static bool reversing_timer_locked;
 
-        race.collision_avoidance_blocked = true;  // Unblock collision avoidance.
+        safety.collision_avoidance_blocked = true;  // Unblock collision avoidance.
 
         // Transition to COMPLETE state after the reverse duration has passed.
         if (reversing_timer_locked && millis() - reversing_timer > REVERSE_DURATION) {
@@ -956,6 +851,7 @@ void updateSensors() {
   static unsigned long last_millis_A;
   static unsigned long last_millis_B;
 
+  // Initialize the gyroscope by measuring the yaw angle offset.
   initGyroscope();
 
   // Update the data stream of the gyroscope and the voltmeter.
@@ -968,14 +864,14 @@ void updateSensors() {
   }
 
   // Update the retrieved data of the pixy camera.
-  if (race.obstacles_included && millis() - last_millis_B > (1000 / CAMERA_FREQUENCY)) {
+  if (safety.obstacles_included && millis() - last_millis_B > (1000 / CAMERA_FREQUENCY)) {
     last_millis_B = millis();
 
     pixy.ccc.getBlocks();
-    current.x_pos = camera.readX(race.magenta_unlocked);
-    current.y_pos = camera.readY(race.magenta_unlocked);
-    current.colour = camera.readColour(race.magenta_unlocked);
-    current.block_index = camera.readIndex(race.magenta_unlocked);
+    current.x_pos = camera.readX(safety.magenta_unlocked);
+    current.y_pos = camera.readY(safety.magenta_unlocked);
+    current.colour = camera.readColour(safety.magenta_unlocked);
+    current.block_index = camera.readIndex(safety.magenta_unlocked);
   }
 
   // Refresh the incoming ultrasonic sensor data by cycling through each sonar.
@@ -1404,7 +1300,7 @@ void cycleSonars() {
  */
 void showData() {
   const uint8_t FREQUENCY = 5;
-  const uint8_t LAYOUT_ID = race.obstacles_included ? 2 : 1;
+  const uint8_t LAYOUT_ID = safety.obstacles_included ? 2 : 1;
   static unsigned long last_millis;
 
   if (millis() - last_millis > (1000 / FREQUENCY)) {
@@ -1483,7 +1379,7 @@ void parkingDemo() {
 
   // LAYER 1: Check if the robot is ready to initiate parking.
   if (race.sections >= 4) {
-    race.magenta_unlocked = true;
+    safety.magenta_unlocked = true;
 
     if (!race.turning && current.colour == Colour::MAGENTA || parking_lot_detected) {
       // Mark parking lot as detected.
@@ -1500,20 +1396,20 @@ void parkingDemo() {
       // LAYER 2: Handle parking or other tasks based on current conditions.
       if (current.colour != Colour::MAGENTA || (current.colour == Colour::MAGENTA && index != pixy.ccc.blocks[0].m_index)) {
         park(turn_direction);
-      } else if (collisionRisk() && !race.collision_avoidance_blocked) {
+      } else if (collisionRisk() && !safety.collision_avoidance_blocked) {
         avoidCollision();
       } else {
         // LAYER 3: Handle normal turning if no parking or collision risk.
-        race.obstacles_included ? handleTurns(TurnMode::SWIFT) : handleTurns(TurnMode::SHARP);
+        safety.obstacles_included ? handleTurns(TurnMode::SWIFT) : handleTurns(TurnMode::SHARP);
       }
     }
   } else {
     // LAYER 2: Handle parking or other tasks based on current conditions.
-    if (collisionRisk() && !race.collision_avoidance_blocked) {
+    if (collisionRisk() && !safety.collision_avoidance_blocked) {
       avoidCollision();
     } else {
       // LAYER 3: Handle normal turning if no parking or collision risk.
-      race.obstacles_included ? handleTurns(TurnMode::SWIFT) : handleTurns(TurnMode::SHARP);
+      safety.obstacles_included ? handleTurns(TurnMode::SWIFT) : handleTurns(TurnMode::SHARP);
     }
   }
 }

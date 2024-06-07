@@ -108,6 +108,14 @@ enum class TurnMode : const uint8_t {
   SWIFT
 };
 
+/**
+ * @enum TurnDirection
+ * @brief Enumerates possible turning directions for a vehicle.
+ *
+ * Defines symbolic names for the different turning directions that a vehicle can take.
+ * This enumeration simplifies the code by replacing numeric or boolean values with clear,
+ * descriptive identifiers, improving readability and maintainability.
+ */
 enum class TurnDirection : const uint8_t {
   NONE,
   LEFT,
